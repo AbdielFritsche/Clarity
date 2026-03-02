@@ -1,0 +1,16 @@
+{
+  "name": "clarity-plant",
+  "version": "1.0.0",
+  "description": "Proyecto Clarity — Simulación 3D Línea de Lavado PET",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "three": "^0.165.0"
+  },
+  "devDependencies": {
+    "vite": "^5.3.0"
+  }
+}

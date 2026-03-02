@@ -1,0 +1,299 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #020810;
+  font-family: 'Share Tech Mono', monospace;
+  overflow: hidden;
+  color: #00f5ff;
+}
+
+canvas {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw;
+  height: 100vh;
+  display: block;
+}
+
+/* ── HUD ──────────────────────────────────────── */
+#hud {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Corner brackets */
+.corner {
+  position: absolute;
+  width: 50px;
+  height: 50px;
+}
+.corner::before, .corner::after {
+  content: '';
+  position: absolute;
+  background: #00f5ff;
+}
+.corner::before { width: 100%; height: 2px; top: 0; left: 0; }
+.corner::after  { width: 2px; height: 100%; top: 0; left: 0; }
+.corner-tl { top: 10px; left: 10px; }
+.corner-tr { top: 10px; right: 10px; transform: scaleX(-1); }
+.corner-bl { bottom: 10px; left: 10px; transform: scaleY(-1); }
+.corner-br { bottom: 10px; right: 10px; transform: scale(-1); }
+
+/* Title */
+.title-block {
+  position: absolute;
+  top: 24px;
+  left: 30px;
+}
+.title-block h1 {
+  font-family: 'Orbitron', monospace;
+  font-weight: 900;
+  font-size: 28px;
+  letter-spacing: 6px;
+  color: #00f5ff;
+  text-shadow: 0 0 20px #00f5ff, 0 0 40px #00f5ff55;
+}
+.title-block p {
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: #006688;
+  margin-top: 4px;
+}
+.scan-line {
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #00f5ff44, transparent);
+  margin-top: 8px;
+  animation: scan 3s ease-in-out infinite;
+}
+@keyframes scan {
+  0%, 100% { opacity: 0.3; }
+  50%       { opacity: 1; }
+}
+
+/* Metric panel */
+.panel-right {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  width: 230px;
+}
+.metric-card {
+  background: linear-gradient(135deg, rgba(0,20,30,0.9), rgba(0,40,60,0.7));
+  border: 1px solid #00f5ff33;
+  border-left: 3px solid #00f5ff;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  backdrop-filter: blur(10px);
+}
+.metric-label {
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: #005566;
+  text-transform: uppercase;
+}
+.metric-value {
+  font-family: 'Orbitron', monospace;
+  font-size: 22px;
+  font-weight: 700;
+  margin-top: 2px;
+  transition: color 0.5s;
+}
+.metric-bar {
+  height: 3px;
+  background: #001520;
+  margin-top: 8px;
+  border-radius: 2px;
+  overflow: hidden;
+}
+.metric-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: #00f5ff;
+  width: 0%;
+  transition: width 0.5s, background 0.5s;
+}
+
+/* Stages bar */
+.stages-bar {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.stage {
+  padding: 7px 16px;
+  border: 1px solid #004455;
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: #003344;
+  background: rgba(0,10,20,0.8);
+  transition: all 0.5s;
+  position: relative;
+}
+.stage.active {
+  border-color: #00f5ff;
+  color: #00f5ff;
+  background: rgba(0,245,255,0.05);
+  box-shadow: 0 0 12px #00f5ff33;
+}
+.stage.active::before {
+  content: '';
+  position: absolute;
+  top: -5px; left: 50%;
+  transform: translateX(-50%);
+  width: 6px; height: 6px;
+  background: #00f5ff;
+  border-radius: 50%;
+  box-shadow: 0 0 8px #00f5ff;
+  animation: dot-pulse 1s ease-in-out infinite;
+}
+@keyframes dot-pulse {
+  0%, 100% { opacity: 1; transform: translateX(-50%) scale(1); }
+  50%       { opacity: 0.4; transform: translateX(-50%) scale(1.6); }
+}
+.stage-arrow {
+  color: #003344;
+  font-size: 14px;
+}
+
+/* Alert banner */
+.alert-banner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 12px 28px;
+  font-family: 'Orbitron', monospace;
+  font-size: 13px;
+  letter-spacing: 4px;
+  border: 2px solid #ff3300;
+  color: #ff3300;
+  background: rgba(30,0,0,0.92);
+  box-shadow: 0 0 30px #ff330055;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+.alert-banner.visible {
+  opacity: 1;
+  animation: alert-flash 1s ease-in-out infinite;
+}
+@keyframes alert-flash {
+  0%, 100% { box-shadow: 0 0 20px #ff330055; }
+  50%       { box-shadow: 0 0 50px #ff3300aa; }
+}
+
+/* Noise overlay */
+.noise {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  opacity: 0.03;
+  pointer-events: none;
+  z-index: 5;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 200px;
+  animation: noise-anim 0.5s steps(2) infinite;
+}
+@keyframes noise-anim {
+  0%   { transform: translate(0, 0); }
+  25%  { transform: translate(-2px, 1px); }
+  50%  { transform: translate(1px, -2px); }
+  75%  { transform: translate(2px, 0); }
+  100% { transform: translate(0, 2px); }
+}
+
+
+/* Water Savings Panel */
+.water-panel {
+  position: absolute;
+  bottom: 80px;
+  left: 24px;
+  width: 300px;
+  background: linear-gradient(135deg, rgba(0,20,35,0.92), rgba(0,40,60,0.80));
+  border: 1px solid #00f5ff33;
+  border-left: 3px solid #00ccff;
+  padding: 16px 18px;
+  backdrop-filter: blur(12px);
+}
+.water-title {
+  font-family: 'Orbitron', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 4px;
+  color: #00f5ff;
+  text-shadow: 0 0 10px #00f5ff66;
+}
+.water-subtitle {
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: #006688;
+  margin-bottom: 14px;
+  margin-top: 2px;
+}
+.water-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.water-label {
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  color: #aaccdd;
+  width: 70px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.dot-standard { background: #ff6633; box-shadow: 0 0 6px #ff663388; }
+.dot-clarity  { background: #00f5ff; box-shadow: 0 0 6px #00f5ff88; }
+.water-bar-track {
+  flex: 1;
+  height: 8px;
+  background: rgba(0,20,30,0.8);
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid #00334455;
+}
+.water-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.8s ease;
+}
+.standard-fill { background: linear-gradient(90deg, #cc3300, #ff6633); }
+.clarity-fill  { background: linear-gradient(90deg, #0077cc, #00f5ff); }
+.water-number {
+  font-family: 'Orbitron', monospace;
+  font-size: 9px;
+  color: #88ccdd;
+  width: 70px;
+  text-align: right;
+  flex-shrink: 0;
+}
+.water-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #00334455;
+}
+.water-total-label { font-size: 9px; letter-spacing: 2px; color: #006688; }
+.water-total-value {
+  font-family: 'Orbitron', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: #00ff88;
+  text-shadow: 0 0 10px #00ff8866;
+}

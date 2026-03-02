@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Proyecto Clarity — Linea de Lavado PET</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <canvas id="three-canvas"></canvas>
+
+  <div id="hud">
+    <div class="corner corner-tl"></div>
+    <div class="corner corner-tr"></div>
+    <div class="corner corner-bl"></div>
+    <div class="corner corner-br"></div>
+
+    <div class="title-block">
+      <h1>CLARITY</h1>
+      <p>LINEA DE PROCESADO PET / SISTEMA DE LAVADO BIOLOGICO</p>
+      <div class="scan-line"></div>
+    </div>
+
+    <!-- Metrics panel right -->
+    <div class="panel-right">
+      <div class="metric-card">
+        <div class="metric-label">Biocarga UFC/mL</div>
+        <div class="metric-value" id="bioVal">100</div>
+        <div class="metric-bar"><div class="metric-fill" id="bioFill"></div></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Lotes procesados</div>
+        <div class="metric-value" id="lotesVal">0</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Pureza PET</div>
+        <div class="metric-value" id="pureza">99.8%</div>
+        <div class="metric-bar"><div class="metric-fill" id="purezaFill" style="width:99.8%"></div></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Temp. Agua C</div>
+        <div class="metric-value" id="tempVal">72.4</div>
+      </div>
+    </div>
+
+    <!-- Water savings panel left-bottom -->
+    <div class="water-panel">
+      <div class="water-title">AHORRO DE AGUA</div>
+      <div class="water-subtitle">Clarity vs. Linea Estandar</div>
+
+      <div class="water-row">
+        <div class="water-label">
+          <span class="dot dot-standard"></span>
+          Sin sensor
+        </div>
+        <div class="water-bar-track">
+          <div class="water-bar-fill standard-fill" id="standardBar" style="width:100%"></div>
+        </div>
+        <div class="water-number">18.0 L/lote</div>
+      </div>
+
+      <div class="water-row">
+        <div class="water-label">
+          <span class="dot dot-clarity"></span>
+          Clarity
+        </div>
+        <div class="water-bar-track">
+          <div class="water-bar-fill clarity-fill" id="clarityBar" style="width:18%"></div>
+        </div>
+        <div class="water-number" id="claritySaved">3.2 L/lote</div>
+      </div>
+
+      <div class="water-total">
+        <span class="water-total-label">Acumulado</span>
+        <span class="water-total-value" id="totalSaved">0 L  (-82%)</span>
+      </div>
+    </div>
+
+    <div class="alert-banner" id="alertBanner">BIOCARGA CRITICA - REGENERAR</div>
+
+    <div class="stages-bar">
+      <div class="stage" id="s0">RECEPCION</div>
+      <span class="stage-arrow">›</span>
+      <div class="stage" id="s1">TRITURADO</div>
+      <span class="stage-arrow">›</span>
+      <div class="stage" id="s2">LAVADO CLARITY</div>
+      <span class="stage-arrow">›</span>
+      <div class="stage" id="s3">ENJUAGUE</div>
+      <span class="stage-arrow">›</span>
+      <div class="stage" id="s4">SECADO</div>
+      <span class="stage-arrow">›</span>
+      <div class="stage" id="s5">SALIDA</div>
+    </div>
+  </div>
+
+  <div class="noise"></div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

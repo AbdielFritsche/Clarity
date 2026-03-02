@@ -6,3 +6,4 @@ pyglet==1.4.0
 numpy
 opencv-python
 pygame
+ursina
