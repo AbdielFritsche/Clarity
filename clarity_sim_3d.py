@@ -1,6 +1,6 @@
 """
 Clarity — Biosensor Óptico para Reciclaje PET
-Simulación INTERACTIVA con Pygame
+SSimulación INTERACTIVA con Pygame
 
 Visualización en tiempo real del sistema de control de biocarga:
   - Tanque de agua con nivel de contaminación animado
@@ -37,9 +37,12 @@ EFECTO_QUIMICO    = 0.60
 # Agua y purgas
 VOLUMEN_TANQUE    = 5_000
 AGUA_POR_PURGA    = 1_200
+AGUA_BASE_POR_HORA = 200     # litros/hora — reposición por evaporación, arrastre y pérdidas
 CADA_PURGA_CIEGA  = 4 * 3600
 CADA_DOSIS_CIEGA  = 1 * 3600
 COOLDOWN_PURGA    = 1_800
+PURGA_OBLIGATORIA = 12 * 3600  # purga sanitaria obligatoria cada 12 horas (protocolo de planta)
+PURGAS_POR_CICLO  = 2          # número de purgas consecutivas por ciclo obligatorio
 
 # Sensor
 INTERVALO_SENSOR  = 2
@@ -121,6 +124,7 @@ class SistemaAgua:
         self.purgas = 0
         self.dosificaciones = 0
         self.t_ultima_purga = -COOLDOWN_PURGA
+        self.t_ultima_purga_obligatoria = 0.0  # purga sanitaria por protocolo
 
         # Indicadores visuales (frames restantes)
         self.dosis_flash = 0
@@ -133,8 +137,8 @@ class SistemaAgua:
         self.biocarga = max(50.0, self.biocarga)
         self.dosis_flash = 90
 
-    def purgar(self, t: float) -> bool:
-        if t - self.t_ultima_purga < COOLDOWN_PURGA:
+    def purgar(self, t: float, force: bool = False) -> bool:
+        if not force and t - self.t_ultima_purga < COOLDOWN_PURGA:
             return False
         self.agua_usada += AGUA_POR_PURGA
         self.purgas += 1
@@ -145,9 +149,16 @@ class SistemaAgua:
         self.purga_flash = 90
         return True
 
-    def step(self, dt: float):
+    def step(self, dt: float, t: float = 0.0):
         delta = TASA_CRECIMIENTO * self.biocarga * (1.0 - self.biocarga / BIOCARGA_MAX) * dt
         self.biocarga = max(50.0, self.biocarga + delta)
+        # Consumo base de agua (reposición, evaporación, arrastre)
+        self.agua_usada += AGUA_BASE_POR_HORA * (dt / 3600)
+        # Purga sanitaria obligatoria por protocolo de planta (2 purgas cada 12h)
+        if t - self.t_ultima_purga_obligatoria >= PURGA_OBLIGATORIA:
+            for _ in range(PURGAS_POR_CICLO):
+                self.purgar(t, force=True)
+            self.t_ultima_purga_obligatoria = t
         if self.dosis_flash > 0:
             self.dosis_flash -= 1
         if self.purga_flash > 0:
@@ -401,6 +412,143 @@ def draw_speed_controls(surface, fonts, paused, speed_multiplier):
     surface.blit(rendered, rect)
 
 
+def draw_results_overlay(surface, fonts, ciego, clarity):
+    """Panel de resultados comparativos que aparece al terminar la simulación."""
+    # Overlay oscuro semi-transparente
+    overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 200))
+    surface.blit(overlay, (0, 0))
+
+    # Panel principal
+    panel_w = 720
+    panel_h = 520
+    px = (WIDTH - panel_w) // 2
+    py = (HEIGHT - panel_h) // 2
+    panel_rect = pygame.Rect(px, py, panel_w, panel_h)
+
+    # Fondo del panel con borde
+    pygame.draw.rect(surface, (30, 30, 40), panel_rect, border_radius=12)
+    pygame.draw.rect(surface, (0, 180, 255), panel_rect, 3, border_radius=12)
+
+    # Fuentes para resultados
+    f_title = fonts.get("res_title", fonts["title"])
+    f_sub   = fonts.get("res_sub", fonts["small"])
+    f_head  = fonts.get("res_head", fonts["met_title"])
+    f_row   = fonts.get("res_row", fonts["metric"])
+    f_note  = fonts.get("res_note", fonts["tiny"])
+
+    cy = py + 30  # cursor vertical
+
+    # Título
+    draw_text_centered(surface, "RESULTADOS DE SIMULACIÓN", WIDTH // 2, cy, f_title, (0, 200, 255))
+    cy += 26
+    draw_text_centered(surface, f"Planta Reciclaje PET — {HORAS}h de operación",
+                       WIDTH // 2, cy, f_sub, (180, 180, 180))
+    cy += 30
+
+    # Línea separadora
+    pygame.draw.line(surface, (0, 140, 200), (px + 30, cy), (px + panel_w - 30, cy), 1)
+    cy += 16
+
+    # Encabezados de columna
+    col_label = px + 40
+    col_ciego = px + 400
+    col_clarity = px + 520
+    col_delta = px + 640
+
+    for txt, cx in [("Métrica", col_label), ("Ciego", col_ciego),
+                    ("Clarity", col_clarity), ("Δ", col_delta)]:
+        rendered = f_head.render(txt, True, (200, 200, 200))
+        r = rendered.get_rect(midleft=(cx, cy) if txt == "Métrica" else (0,0))
+        if txt == "Métrica":
+            surface.blit(rendered, r)
+        else:
+            r = rendered.get_rect(center=(cx, cy))
+            surface.blit(rendered, r)
+    cy += 22
+
+    pygame.draw.line(surface, (80, 80, 100), (px + 30, cy), (px + panel_w - 30, cy), 1)
+    cy += 10
+
+    # Filas de datos
+    def delta_str(a, b):
+        if a == 0:
+            return "—"
+        pct = (b - a) / a * 100
+        return f"{pct:+.1f}%"
+
+    def delta_color(a, b):
+        if a == 0:
+            return (180, 180, 180)
+        return (100, 255, 100) if b < a else (255, 100, 100) if b > a else (180, 180, 180)
+
+    rows = [
+        ("Agua fresca consumida",   f"{int(ciego.agua_usada):,} L",         f"{int(clarity.agua_usada):,} L",
+         delta_str(ciego.agua_usada, clarity.agua_usada), delta_color(ciego.agua_usada, clarity.agua_usada)),
+        ("Químico utilizado",       f"{ciego.quim_usado:.1f} u.",           f"{clarity.quim_usado:.1f} u.",
+         delta_str(ciego.quim_usado, clarity.quim_usado), delta_color(ciego.quim_usado, clarity.quim_usado)),
+        ("Purgas realizadas",       f"{ciego.purgas}",                      f"{clarity.purgas}",
+         delta_str(ciego.purgas, clarity.purgas), delta_color(ciego.purgas, clarity.purgas)),
+        ("Dosificaciones",          f"{ciego.dosificaciones}",              f"{clarity.dosificaciones}",
+         delta_str(ciego.dosificaciones, clarity.dosificaciones), delta_color(ciego.dosificaciones, clarity.dosificaciones)),
+        ("Biocarga final",          f"{int(ciego.biocarga):,} UFC/mL",      f"{int(clarity.biocarga):,} UFC/mL",
+         delta_str(ciego.biocarga, clarity.biocarga), delta_color(ciego.biocarga, clarity.biocarga)),
+    ]
+
+    for label, val_c, val_cl, d_str, d_col in rows:
+        # Label
+        rendered = f_row.render(label, True, (220, 220, 220))
+        surface.blit(rendered, (col_label, cy))
+
+        # Valor ciego
+        rendered = f_row.render(val_c, True, (220, 80, 80))
+        r = rendered.get_rect(center=(col_ciego, cy + 8))
+        surface.blit(rendered, r)
+
+        # Valor Clarity
+        rendered = f_row.render(val_cl, True, (80, 220, 80))
+        r = rendered.get_rect(center=(col_clarity, cy + 8))
+        surface.blit(rendered, r)
+
+        # Delta
+        rendered = f_row.render(d_str, True, d_col)
+        r = rendered.get_rect(center=(col_delta, cy + 8))
+        surface.blit(rendered, r)
+
+        cy += 28
+
+    cy += 8
+    pygame.draw.line(surface, (80, 80, 100), (px + 30, cy), (px + panel_w - 30, cy), 1)
+    cy += 16
+
+    # Bloque de impacto
+    ahorro_agua = (ciego.agua_usada - clarity.agua_usada) / ciego.agua_usada * 100 if ciego.agua_usada else 0
+    ahorro_quim = (ciego.quim_usado - clarity.quim_usado) / ciego.quim_usado * 100 if ciego.quim_usado else 0
+
+    # Recuadro de impacto
+    imp_rect = pygame.Rect(px + 30, cy - 4, panel_w - 60, 120)
+    pygame.draw.rect(surface, (20, 40, 30), imp_rect, border_radius=8)
+    pygame.draw.rect(surface, (0, 180, 100), imp_rect, 2, border_radius=8)
+
+    draw_text_centered(surface, "IMPACTO DE CLARITY", WIDTH // 2, cy + 12, f_head, (0, 255, 160))
+    cy += 32
+
+    impact_lines = [
+        (f"Ahorro de agua:  {ahorro_agua:+.1f}%", (100, 220, 255)),
+        (f"Ahorro de químicos:  {ahorro_quim:+.1f}%", (255, 255, 100)),
+        (f"Control en tiempo real cada {INTERVALO_SENSOR}s — dosificación precisa", (180, 220, 180)),
+    ]
+
+    for txt, col in impact_lines:
+        draw_text_centered(surface, txt, WIDTH // 2, cy, f_row, col)
+        cy += 22
+
+    # Nota al pie
+    cy = py + panel_h - 28
+    draw_text_centered(surface, "Presiona Esc para cerrar",
+                       WIDTH // 2, cy, f_note, (120, 120, 140))
+
+
 # ──────────────────── Bucle principal ─────────────────────────────────────────
 
 def simular_3d():
@@ -477,8 +625,8 @@ def simular_3d():
                 if sim_time >= T_TOTAL:
                     break
 
-                sys_ciego.step(step_dt)
-                sys_clarity.step(step_dt)
+                sys_ciego.step(step_dt, sim_time)
+                sys_clarity.step(step_dt, sim_time)
 
                 t_ultima_dosis_ciego, t_ultima_purga_ciego = plc_ciego.step_ciego(
                     sim_time, t_ultima_dosis_ciego, t_ultima_purga_ciego
@@ -499,11 +647,7 @@ def simular_3d():
         draw_speed_controls(screen, fonts, paused, speed_multiplier)
 
         if sim_time >= T_TOTAL:
-            draw_text_centered(
-                screen, "SIMULACIÓN COMPLETADA — Presiona Esc para ver reporte",
-                WIDTH // 2, HEIGHT // 2,
-                fonts["title"], (255, 255, 100)
-            )
+            draw_results_overlay(screen, fonts, sys_ciego, sys_clarity)
 
         pygame.display.flip()
 
