@@ -1,48 +1,21 @@
 """
 Clarity — Biosensor Óptico para Reciclaje PET
-Simulación INTERACTIVA 3D con salabim
+Simulación INTERACTIVA con Pygame
 
 Visualización en tiempo real del sistema de control de biocarga:
-  - Tanque de agua 3D con nivel de contaminación animado
+  - Tanque de agua con nivel de contaminación animado
   - Sensor láser con animación de lectura
-  - Gráficos en tiempo real de biocarga, químicos y agua
+  - Métricas en tiempo real
   - Eventos visuales de dosificación y purgas
   - Comparación lado a lado: MODO CIEGO vs MODO CLARITY
 """
 
 import sys
-import salabim as sim
+import math
 import random
+import pygame
 
 sys.stdout.reconfigure(encoding="utf-8")
-sim.yieldless(False)
-
-
-# ──────────────────── Entorno con zoom sincronizado ───────────────────────────
-# salabim caches rendered PIL images per animation object using `_image_ident`.
-# The cache key does NOT include the viewport scale, so when the user zooms,
-# static elements (constant fillcolor/spec) reuse stale images rendered at the
-# old scale while their screen position (qx, qy) is recalculated at the NEW
-# scale. This causes a visual desync between static and dynamic elements.
-#
-# Fix: detect when `_scalez` changes between ticks and invalidate
-# `_image_ident_prev` on every animation object, forcing a full re-render
-# of all elements at the correct scale.
-
-class ZoomSyncEnvironment(sim.Environment):
-    def animation_pre_tick(self, t):
-        prev_scale = getattr(self, '_prev_scalez', None)
-        super().animation_pre_tick(t)
-        if prev_scale is not None and self._scalez != prev_scale:
-            # Invalidate _image_ident (not _image_ident_prev!) because
-            # make_pil_image() starts with `_image_ident_prev = _image_ident`
-            # before computing the new ident.  Setting _image_ident to None
-            # ensures the saved prev won't match the freshly computed value,
-            # forcing a full re-render of every element at the new scale.
-            for ao in self.an_objects:
-                ao._image_ident = None
-        self._prev_scalez = self._scalez
-
 
 # ──────────────────── Parámetros del proceso ──────────────────────────────────
 
@@ -72,575 +45,475 @@ COOLDOWN_PURGA    = 1_800
 INTERVALO_SENSOR  = 2
 RUIDO_SENSOR      = 0.05
 
-# Visualización mejorada
-ESCALA_TIEMPO     = 3600  # 1 hora simulada = 1 segundo real
+# Simulación
+DT            = 10       # paso de simulación en segundos
+ESCALA_TIEMPO = 3600     # 1 hora simulada = 1 segundo real
+
+# ──────────────────── Ventana y Layout ────────────────────────────────────────
+
+WIDTH  = 1280
+HEIGHT = 720
+FPS    = 60
+
+BG_COLOR     = (26, 26, 26)
+DIVIDER_X    = WIDTH // 2
+LEFT_CENTER  = WIDTH // 4
+RIGHT_CENTER = WIDTH * 3 // 4
+
+# Tanque
+TANK_W = 180
+TANK_H = 260
+TANK_TOP = 120
+TANK_BOTTOM = TANK_TOP + TANK_H
+
+# Barra de nivel
+BAR_W = 16
+BAR_GAP = 12
+
+# ──────────────────── Colores ─────────────────────────────────────────────────
+
+COLOR_LEVELS = [
+    (100,   (0, 102, 204)),
+    (200,   (0, 153, 255)),
+    (350,   (0, 204, 204)),
+    (500,   (204, 204, 0)),
+    (1000,  (255, 136, 0)),
+    (3000,  (255, 68, 0)),
+    (99999, (255, 0, 0)),
+]
+
+LEGEND_LABELS = [
+    ((0, 102, 204),   "<100 Limpio"),
+    ((0, 153, 255),   "<200 Mínimo"),
+    ((0, 204, 204),   "<350 Detectado"),
+    ((204, 204, 0),   "<500 Precaución"),
+    ((255, 136, 0),   "<1000 Tratando"),
+    ((255, 68, 0),    "<3000 Crítico"),
+    ((255, 0, 0),     ">3000 Purga"),
+]
 
 
-# ──────────────────── Layout compartido ───────────────────────────────────────
-
-DIVIDER_CENTER_X = 512
-SYSTEM_CENTER_OFFSET = 200
-LEFT_SYSTEM_CENTER = DIVIDER_CENTER_X - SYSTEM_CENTER_OFFSET
-RIGHT_SYSTEM_CENTER = DIVIDER_CENTER_X + SYSTEM_CENTER_OFFSET
-LAYOUT_CENTER_X = DIVIDER_CENTER_X
-LEFT_CONTENT_EDGE = LEFT_SYSTEM_CENTER - 170
-RIGHT_CONTENT_EDGE = RIGHT_SYSTEM_CENTER + 170
-LAYOUT_WIDTH = RIGHT_CONTENT_EDGE - LEFT_CONTENT_EDGE
+def get_biocarga_color(biocarga):
+    for threshold, color in COLOR_LEVELS:
+        if biocarga < threshold:
+            return color
+    return (255, 0, 0)
 
 
-# ──────────────────── Componente auxiliar: Reset de indicadores ──────────────
-
-class ResetIndicator(sim.Component):
-    """Componente temporal para resetear indicadores visuales"""
-    def setup(self, tanque, tipo: str, wait_time: float):
-        self.tanque = tanque
-        self.tipo = tipo
-        self.wait_time = wait_time
-
-    def process(self):
-        yield self.hold(self.wait_time)
-        if self.tipo == "dosis":
-            self.tanque._dosis_active = False
-        elif self.tipo == "purga":
-            self.tanque._purga_active = False
+def log_fraction(value):
+    if value <= 50:
+        return 0.0
+    log_min = math.log10(50)
+    log_max = math.log10(BIOCARGA_MAX)
+    return min(1.0, (math.log10(value) - log_min) / (log_max - log_min))
 
 
-# ──────────────────── Componente: Tanque de Agua ──────────────────────────────
+# ──────────────────── Sistema de Agua (lógica pura) ───────────────────────────
 
-class TanqueAgua(sim.Component):
-    def setup(self, modo: str, x_offset: float = 0):
+class SistemaAgua:
+    """Estado dinámico del agua de lavado en el proceso PET."""
+
+    def __init__(self, modo: str):
         self.modo = modo
-        self.x_offset = x_offset
-
-        # Estado del proceso
         self.biocarga = BIOCARGA_INICIAL
+        self.agua_usada = 0.0
+        self.quim_usado = 0.0
+        self.purgas = 0
+        self.dosificaciones = 0
+        self.t_ultima_purga = -COOLDOWN_PURGA
 
-        # Métricas de consumo
-        self.agua_usada      = 0.0
-        self.quim_usado      = 0.0
-        self.purgas          = 0
-        self.dosificaciones  = 0
-        self.t_ultima_purga  = -COOLDOWN_PURGA
-
-        # Estado visual de indicadores
-        self._dosis_active = False
-        self._purga_active = False
-
-        # Monitor para gráfica
-        self.hist_biocarga_monitor = sim.Monitor(
-            name=f"biocarga_{modo}",
-            level=True,
-            initial_tally=BIOCARGA_INICIAL
-        )
-
-        # Animaciones 3D
-        self._crear_visualizacion()
-
-    def _crear_visualizacion(self):
-        """Crea los elementos visuales del tanque y sensores"""
-        import math as _math
-
-        x = self.x_offset
-        color = "red" if self.modo == "ciego" else "green"
-        titulo = "MODO CIEGO" if self.modo == "ciego" else "MODO CLARITY"
-        panel_center_x = x
-
-        # ═══════════════════ TANQUE PRINCIPAL ═══════════════════
-        TANK_LEFT   = x - 90
-        TANK_RIGHT  = x + 90
-        TANK_BOTTOM = 300
-        TANK_TOP    = 580
-
-        # ─── Título y subtítulo (tight above tank) ───
-        sim.AnimateText(
-            text=titulo,
-            x=panel_center_x, y=TANK_TOP + 14,
-            font="Arial", fontsize=26, textcolor=color,
-            xy_anchor="c"
-        )
-
-        subtitle = "Sin sensor — temporizadores fijos" if self.modo == "ciego" else "Sensor láser 405nm — lazo cerrado"
-        sim.AnimateText(
-            text=subtitle,
-            x=panel_center_x, y=TANK_TOP - 6,
-            font="Arial", fontsize=11,
-            textcolor="#aaaaaa",
-            xy_anchor="c"
-        )
-
-        sim.AnimateText(
-            text="TANQUE DE AGUA",
-            x=panel_center_x, y=TANK_TOP - 22,
-            font="Arial", fontsize=11,
-            textcolor="#cccccc",
-            xy_anchor="c"
-        )
-
-        # ─── Agua interior (drawn first so frame goes on top) ───
-        self.nivel_agua = sim.AnimateRectangle(
-            spec=(TANK_LEFT, TANK_BOTTOM, TANK_RIGHT, TANK_TOP),
-            fillcolor=lambda arg, t: self._get_color_biocarga(),
-            linewidth=0
-        )
-
-        # ─── Marco exterior ───
-        sim.AnimateRectangle(
-            spec=(TANK_LEFT - 3, TANK_BOTTOM - 3, TANK_RIGHT + 3, TANK_TOP + 3),
-            fillcolor="",
-            linewidth=4,
-            linecolor="#888888"
-        )
-
-        # ─── Valor biocarga centrado en el tanque ───
-        tank_mid_y = (TANK_BOTTOM + TANK_TOP) // 2
-        self.text_biocarga = sim.AnimateText(
-            text=lambda arg, t: f"{int(self.biocarga)}",
-            x=x, y=tank_mid_y + 12,
-            font="Courier New", fontsize=30,
-            textcolor="white",
-            xy_anchor="c"
-        )
-
-        sim.AnimateText(
-            text="UFC/mL",
-            x=x, y=tank_mid_y - 18,
-            font="Courier New", fontsize=12,
-            textcolor="#dddddd",
-            xy_anchor="c"
-        )
-
-        # ═══════════════════ BARRA DE NIVEL (log scale) ═══════════════════
-        BAR_X      = TANK_RIGHT + 10
-        BAR_W      = 16
-        BAR_BOTTOM = TANK_BOTTOM
-        BAR_TOP    = TANK_TOP
-
-        sim.AnimateRectangle(
-            spec=(BAR_X, BAR_BOTTOM, BAR_X + BAR_W, BAR_TOP),
-            fillcolor="#1a1a1a",
-            linewidth=2,
-            linecolor="#666666"
-        )
-
-        _LOG_MIN = _math.log10(50)
-        _LOG_MAX = _math.log10(BIOCARGA_MAX)
-
-        def _log_fraction(value):
-            if value <= 50:
-                return 0.0
-            return min(1.0, (_math.log10(value) - _LOG_MIN) / (_LOG_MAX - _LOG_MIN))
-
-        self.nivel_barra = sim.AnimateRectangle(
-            spec=lambda arg, t: (
-                BAR_X + 2,
-                BAR_BOTTOM + 2,
-                BAR_X + BAR_W - 2,
-                BAR_BOTTOM + 2 + (BAR_TOP - BAR_BOTTOM - 4) * _log_fraction(self.biocarga)
-            ),
-            fillcolor=lambda arg, t: self._get_color_biocarga(),
-            linewidth=0
-        )
-
-        y_dosis = BAR_BOTTOM + (BAR_TOP - BAR_BOTTOM) * _log_fraction(UMBRAL_DOSIFICAR)
-        y_purga = BAR_BOTTOM + (BAR_TOP - BAR_BOTTOM) * _log_fraction(UMBRAL_PURGAR)
-
-        sim.AnimateLine(
-            spec=(BAR_X - 3, y_dosis, BAR_X + BAR_W + 3, y_dosis),
-            linewidth=2, linecolor="orange"
-        )
-        sim.AnimateText(
-            text="D", x=BAR_X + BAR_W + 5, y=y_dosis,
-            fontsize=8, textcolor="orange", xy_anchor="w"
-        )
-
-        sim.AnimateLine(
-            spec=(BAR_X - 3, y_purga, BAR_X + BAR_W + 3, y_purga),
-            linewidth=2, linecolor="red"
-        )
-        sim.AnimateText(
-            text="P", x=BAR_X + BAR_W + 5, y=y_purga,
-            fontsize=8, textcolor="red", xy_anchor="w"
-        )
-
-        # ═══════════════════ SENSOR CLARITY ═══════════════════
-        if self.modo == "clarity":
-            SENS_W = 70
-            SENS_H = 90
-            SENS_LEFT  = TANK_LEFT - SENS_W - 8
-            SENS_MID_Y = tank_mid_y
-            SENS_BOT   = SENS_MID_Y - SENS_H // 2
-            SENS_TOP   = SENS_MID_Y + SENS_H // 2
-            SENS_CX    = (SENS_LEFT + TANK_LEFT - 8) // 2
-
-            sim.AnimateRectangle(
-                spec=(SENS_LEFT, SENS_BOT, TANK_LEFT - 8, SENS_TOP),
-                fillcolor="dimgray", linewidth=3, linecolor="black"
-            )
-
-            sim.AnimateText(
-                text="SENSOR\nCLARITY",
-                x=SENS_CX, y=SENS_MID_Y + 12,
-                font="Arial", fontsize=10,
-                textcolor="white", xy_anchor="c"
-            )
-
-            sim.AnimateText(
-                text="405nm",
-                x=SENS_CX, y=SENS_MID_Y - 22,
-                font="Arial", fontsize=9,
-                textcolor="cyan", xy_anchor="c"
-            )
-
-            self.laser_beam = sim.AnimateLine(
-                spec=(TANK_LEFT - 8, SENS_MID_Y, TANK_LEFT, SENS_MID_Y),
-                linewidth=4,
-                linecolor=lambda arg, t: "purple" if int(self.env.now() / INTERVALO_SENSOR) % 2 == 0 else ""
-            )
-
-            sim.AnimateCircle(
-                radius=5,
-                x=TANK_LEFT, y=SENS_MID_Y,
-                fillcolor=lambda arg, t: "purple" if int(self.env.now() / INTERVALO_SENSOR) % 2 == 0 else "",
-                linewidth=0
-            )
-
-        # ═══════════════════ INDICADORES DE EVENTOS ═══════════════════
-        ind_y = TANK_BOTTOM - 40
-
-        self.dosis_indicator = sim.AnimateCircle(
-            radius=14, x=x - 45, y=ind_y,
-            fillcolor=lambda arg, t: "orange" if self._dosis_active else "",
-            linewidth=3, linecolor="orange"
-        )
-        sim.AnimateText(
-            text="DOSIS", x=x - 45, y=ind_y - 22,
-            fontsize=10, textcolor="orange", xy_anchor="c"
-        )
-
-        self.purga_indicator = sim.AnimateCircle(
-            radius=14, x=x + 45, y=ind_y,
-            fillcolor=lambda arg, t: "dodgerblue" if self._purga_active else "",
-            linewidth=3, linecolor="dodgerblue"
-        )
-        sim.AnimateText(
-            text="PURGA", x=x + 45, y=ind_y - 22,
-            fontsize=10, textcolor="dodgerblue", xy_anchor="c"
-        )
-
-        # ═══════════════════ MÉTRICAS EN TIEMPO REAL ═══════════════════
-        met_center_x = x
-        met_top    = ind_y - 42
-        met_bottom = met_top - 100
-
-        sim.AnimateRectangle(
-            spec=(met_center_x - 92, met_bottom, met_center_x + 92, met_top),
-            fillcolor="#262626", linewidth=2, linecolor="#4d4d4d"
-        )
-
-        sim.AnimateText(
-            text="MÉTRICAS", x=met_center_x, y=met_top - 12,
-            fontsize=13, textcolor="white", xy_anchor="c"
-        )
-
-        self.text_quimico = sim.AnimateText(
-            text=lambda arg, t: f"Químico: {self.quim_usado:.1f} u.",
-            x=met_center_x, y=met_top - 27,
-            fontsize=12, textcolor="yellow", xy_anchor="c"
-        )
-
-        self.text_agua = sim.AnimateText(
-            text=lambda arg, t: f"Agua: {int(self.agua_usada)} L",
-            x=met_center_x, y=met_top - 42,
-            fontsize=12, textcolor="cyan", xy_anchor="c"
-        )
-
-        self.text_purgas = sim.AnimateText(
-            text=lambda arg, t: f"Purgas: {self.purgas}",
-            x=met_center_x, y=met_top - 57,
-            fontsize=12, textcolor="lightblue", xy_anchor="c"
-        )
-
-        self.text_dosis = sim.AnimateText(
-            text=lambda arg, t: f"Dosif.: {self.dosificaciones}",
-            x=met_center_x, y=met_top - 72,
-            fontsize=12, textcolor="orange", xy_anchor="c"
-        )
-
-        self.text_estado = sim.AnimateText(
-            text=lambda arg, t: self._get_estado_text(),
-            x=met_center_x, y=met_top - 90,
-            fontsize=10,
-            textcolor=lambda arg, t: self._get_color_biocarga(),
-            xy_anchor="c"
-        )
-
-    def _get_estado_text(self):
-        """Texto descriptivo del estado actual"""
-        b = self.biocarga
-        if b < 200:
-            return "● LIMPIO"
-        elif b < 500:
-            return "● CRECIENDO"
-        elif b < 3000:
-            return "▲ TRATANDO"
-        else:
-            return "▲ CRÍTICO"
-
-    def _get_color_biocarga(self):
-        """Retorna color según nivel de biocarga (umbrales absolutos)"""
-        b = self.biocarga
-        if b < 100:
-            return "#0066cc"      # Azul oscuro — agua limpia
-        elif b < 200:
-            return "#0099ff"      # Azul — contaminación mínima
-        elif b < 350:
-            return "#00cccc"      # Cyan — crecimiento detectado
-        elif b < 500:
-            return "#cccc00"      # Amarillo — cerca de umbral dosis
-        elif b < 1000:
-            return "#ff8800"      # Naranja — requiere tratamiento
-        elif b < 3000:
-            return "#ff4400"      # Rojo naranja — crítico
-        else:
-            return "#ff0000"      # Rojo — sobre umbral de purga
+        # Indicadores visuales (frames restantes)
+        self.dosis_flash = 0
+        self.purga_flash = 0
 
     def dosificar(self, factor: float):
-        """Aplica dosis química con animación"""
-        self.quim_usado     += factor
+        self.quim_usado += factor
         self.dosificaciones += 1
         self.biocarga *= (1.0 - EFECTO_QUIMICO * factor)
-        self.biocarga  = max(50.0, self.biocarga)
+        self.biocarga = max(50.0, self.biocarga)
+        self.dosis_flash = 90
 
-        # Animación de dosificación
-        self._animar_evento("dosis")
-
-    def purgar(self) -> bool:
-        """Renueva agua con animación"""
-        t_actual = self.env.now()
-        if t_actual - self.t_ultima_purga < COOLDOWN_PURGA:
+    def purgar(self, t: float) -> bool:
+        if t - self.t_ultima_purga < COOLDOWN_PURGA:
             return False
-
-        self.agua_usada     += AGUA_POR_PURGA
-        self.purgas         += 1
-        self.t_ultima_purga  = t_actual
-
+        self.agua_usada += AGUA_POR_PURGA
+        self.purgas += 1
+        self.t_ultima_purga = t
         fraccion = AGUA_POR_PURGA / VOLUMEN_TANQUE
         self.biocarga *= (1.0 - fraccion * 0.88)
-        self.biocarga  = max(50.0, self.biocarga)
-
-        # Animación de purga
-        self._animar_evento("purga")
+        self.biocarga = max(50.0, self.biocarga)
+        self.purga_flash = 90
         return True
 
-    def _animar_evento(self, tipo: str):
-        """Anima eventos de dosificación o purga (duración visible a 3600x)"""
-        if tipo == "dosis":
-            self._dosis_active = True
-            ResetIndicator(tanque=self, tipo="dosis", wait_time=1800)
-        elif tipo == "purga":
-            self._purga_active = True
-            ResetIndicator(tanque=self, tipo="purga", wait_time=1800)
+    def step(self, dt: float):
+        delta = TASA_CRECIMIENTO * self.biocarga * (1.0 - self.biocarga / BIOCARGA_MAX) * dt
+        self.biocarga = max(50.0, self.biocarga + delta)
+        if self.dosis_flash > 0:
+            self.dosis_flash -= 1
+        if self.purga_flash > 0:
+            self.purga_flash -= 1
 
-    def process(self):
-        """Crecimiento bacteriano continuo"""
-        while True:
-            yield self.hold(10)
-
-            delta = (TASA_CRECIMIENTO
-                     * self.biocarga
-                     * (1.0 - self.biocarga / BIOCARGA_MAX)
-                     * 10)
-            self.biocarga = max(50.0, self.biocarga + delta)
-
-            # Actualizar monitor
-            self.hist_biocarga_monitor.tally(self.biocarga)
+    def get_estado_text(self):
+        b = self.biocarga
+        if b < 200:
+            return "LIMPIO", (100, 200, 100)
+        elif b < 500:
+            return "CRECIENDO", (200, 200, 100)
+        elif b < 3000:
+            return "TRATANDO", (255, 136, 0)
+        else:
+            return "CRÍTICO", (255, 0, 0)
 
 
-# ──────────────────── Componente: Biosensor Clarity ───────────────────────────
+# ──────────────────── Controlador PLC ─────────────────────────────────────────
 
-class BiosensorClarity(sim.Component):
-    def setup(self, tanque: TanqueAgua, plc):
-        self.tanque       = tanque
-        self.plc          = plc
-        self.ultima_lectura = BIOCARGA_INICIAL
+class PLCControlador:
+    def __init__(self, sistema: SistemaAgua):
+        self.sistema = sistema
 
-    def process(self):
-        while True:
-            yield self.hold(INTERVALO_SENSOR)
-
-            ruido            = random.gauss(1.0, RUIDO_SENSOR)
-            self.ultima_lectura = max(0.0, self.tanque.biocarga * ruido)
-
-            self.plc.on_lectura_sensor(self.ultima_lectura)
-
-
-# ──────────────────── Componente: PLC (Controlador) ───────────────────────────
-
-class PLCControlador(sim.Component):
-    def setup(self, tanque: TanqueAgua):
-        self.tanque = tanque
-
-    def on_lectura_sensor(self, biocarga: float):
-        """Callback del sensor (modo Clarity)"""
+    def on_lectura_sensor(self, biocarga: float, t: float):
         if biocarga >= UMBRAL_PURGAR:
-            if self.tanque.purgar():
-                self.tanque.dosificar(DOSIS_EXACTA)
+            if self.sistema.purgar(t):
+                self.sistema.dosificar(DOSIS_EXACTA)
         elif biocarga >= UMBRAL_DOSIFICAR:
             factor = (biocarga - UMBRAL_DOSIFICAR) / (UMBRAL_PURGAR - UMBRAL_DOSIFICAR)
             factor = max(0.2, min(DOSIS_EXACTA, factor))
-            self.tanque.dosificar(factor)
+            self.sistema.dosificar(factor)
 
-    def process(self):
-        if self.tanque.modo == "clarity":
-            yield self.passivate()
-        else:
-            yield from self._modo_ciego()
+    def step_ciego(self, t, t_ultima_dosis, t_ultima_purga_ciego):
+        dosis_out = t_ultima_dosis
+        purga_out = t_ultima_purga_ciego
 
-    def _modo_ciego(self):
-        """Lógica de temporizadores fijos"""
-        t_ultima_purga = -CADA_PURGA_CIEGA
+        if t - t_ultima_dosis >= CADA_DOSIS_CIEGA:
+            self.sistema.dosificar(DOSIS_CIEGA)
+            dosis_out = t
 
-        while True:
-            yield self.hold(CADA_DOSIS_CIEGA)
+        if t - t_ultima_purga_ciego >= CADA_PURGA_CIEGA:
+            self.sistema.purgar(t)
+            purga_out = t
 
-            self.tanque.dosificar(DOSIS_CIEGA)
-
-            t = self.env.now()
-            if t - t_ultima_purga >= CADA_PURGA_CIEGA:
-                self.tanque.purgar()
-                t_ultima_purga = t
+        return dosis_out, purga_out
 
 
-# ──────────────────── Simulación con Visualización ────────────────────────────
+# ──────────────────── Biosensor Clarity ───────────────────────────────────────
+
+class BiosensorClarity:
+    def __init__(self, sistema: SistemaAgua, plc: PLCControlador):
+        self.sistema = sistema
+        self.plc = plc
+        self.ultima_lectura = BIOCARGA_INICIAL
+        self.t_ultima_lectura = 0.0
+
+    def step(self, t: float):
+        if t - self.t_ultima_lectura >= INTERVALO_SENSOR:
+            self.t_ultima_lectura = t
+            ruido = random.gauss(1.0, RUIDO_SENSOR)
+            self.ultima_lectura = max(0.0, self.sistema.biocarga * ruido)
+            self.plc.on_lectura_sensor(self.ultima_lectura, t)
+
+
+# ──────────────────── Funciones de dibujo ─────────────────────────────────────
+
+def draw_text_centered(surface, text, x, y, font, color=(255, 255, 255)):
+    rendered = font.render(text, True, color)
+    rect = rendered.get_rect(center=(x, y))
+    surface.blit(rendered, rect)
+
+
+def draw_text_left(surface, text, x, y, font, color=(255, 255, 255)):
+    rendered = font.render(text, True, color)
+    surface.blit(rendered, (x, y))
+
+
+def draw_tank(surface, sistema, center_x, fonts, sim_time):
+    """Dibuja un tanque completo con toda su información"""
+    color_bio = get_biocarga_color(sistema.biocarga)
+    is_clarity = sistema.modo == "clarity"
+
+    # ─── Título del modo ───
+    mode_color = (0, 200, 0) if is_clarity else (220, 50, 50)
+    mode_title = "MODO CLARITY" if is_clarity else "MODO CIEGO"
+    draw_text_centered(surface, mode_title, center_x, TANK_TOP - 52, fonts["title"], mode_color)
+
+    subtitle = "Sensor láser 405nm — lazo cerrado" if is_clarity else "Sin sensor — temporizadores fijos"
+    draw_text_centered(surface, subtitle, center_x, TANK_TOP - 30, fonts["small"], (170, 170, 170))
+
+    draw_text_centered(surface, "TANQUE DE AGUA", center_x, TANK_TOP - 14, fonts["small"], (200, 200, 200))
+
+    # ─── Tanque interior (agua coloreada) ───
+    tank_left = center_x - TANK_W // 2
+    tank_rect = pygame.Rect(tank_left, TANK_TOP, TANK_W, TANK_H)
+    pygame.draw.rect(surface, color_bio, tank_rect)
+
+    # ─── Marco exterior ───
+    frame_rect = tank_rect.inflate(6, 6)
+    pygame.draw.rect(surface, (136, 136, 136), frame_rect, 4)
+
+    # ─── Biocarga centrada ───
+    tank_mid_y = TANK_TOP + TANK_H // 2
+    draw_text_centered(surface, f"{int(sistema.biocarga)}", center_x, tank_mid_y - 6, fonts["biocarga"])
+    draw_text_centered(surface, "UFC/mL", center_x, tank_mid_y + 22, fonts["unit"], (220, 220, 220))
+
+    # ─── Barra de nivel logarítmica ───
+    bar_left = tank_left + TANK_W + BAR_GAP
+    bar_rect = pygame.Rect(bar_left, TANK_TOP, BAR_W, TANK_H)
+    pygame.draw.rect(surface, (26, 26, 26), bar_rect)
+    pygame.draw.rect(surface, (100, 100, 100), bar_rect, 2)
+
+    frac = log_fraction(sistema.biocarga)
+    fill_h = max(1, int((TANK_H - 4) * frac))
+    fill_rect = pygame.Rect(bar_left + 2, TANK_TOP + TANK_H - 2 - fill_h, BAR_W - 4, fill_h)
+    pygame.draw.rect(surface, color_bio, fill_rect)
+
+    # Marcas de umbral
+    frac_dosis = log_fraction(UMBRAL_DOSIFICAR)
+    frac_purga = log_fraction(UMBRAL_PURGAR)
+    y_dosis = TANK_TOP + TANK_H - int(TANK_H * frac_dosis)
+    y_purga = TANK_TOP + TANK_H - int(TANK_H * frac_purga)
+
+    pygame.draw.line(surface, (255, 165, 0), (bar_left - 4, y_dosis), (bar_left + BAR_W + 4, y_dosis), 2)
+    draw_text_left(surface, "D", bar_left + BAR_W + 6, y_dosis - 6, fonts["tiny"], (255, 165, 0))
+
+    pygame.draw.line(surface, (255, 50, 50), (bar_left - 4, y_purga), (bar_left + BAR_W + 4, y_purga), 2)
+    draw_text_left(surface, "P", bar_left + BAR_W + 6, y_purga - 6, fonts["tiny"], (255, 50, 50))
+
+    # ─── Sensor Clarity ───
+    if is_clarity:
+        sens_w = 70
+        sens_h = 90
+        sens_right = tank_left - 10
+        sens_left = sens_right - sens_w
+        sens_top = tank_mid_y - sens_h // 2
+        sens_rect = pygame.Rect(sens_left, sens_top, sens_w, sens_h)
+        pygame.draw.rect(surface, (105, 105, 105), sens_rect)
+        pygame.draw.rect(surface, (50, 50, 50), sens_rect, 3)
+
+        sens_cx = sens_left + sens_w // 2
+        draw_text_centered(surface, "SENSOR", sens_cx, sens_top + 25, fonts["tiny"])
+        draw_text_centered(surface, "CLARITY", sens_cx, sens_top + 40, fonts["tiny"])
+        draw_text_centered(surface, "405nm", sens_cx, sens_top + 62, fonts["tiny"], (0, 220, 220))
+
+        # Láser pulsante
+        pulse = int(sim_time / INTERVALO_SENSOR) % 2 == 0
+        if pulse:
+            laser_color = (180, 0, 255)
+            pygame.draw.line(surface, laser_color, (sens_right, tank_mid_y), (tank_left, tank_mid_y), 4)
+            pygame.draw.circle(surface, laser_color, (tank_left, tank_mid_y), 5)
+
+    # ─── Indicadores de eventos ───
+    ind_y = TANK_BOTTOM + 40
+
+    # Dosis
+    dosis_cx = center_x - 50
+    dosis_color = (255, 165, 0)
+    if sistema.dosis_flash > 0:
+        pygame.draw.circle(surface, dosis_color, (dosis_cx, ind_y), 14)
+    pygame.draw.circle(surface, dosis_color, (dosis_cx, ind_y), 14, 3)
+    draw_text_centered(surface, "DOSIS", dosis_cx, ind_y + 24, fonts["tiny"], dosis_color)
+
+    # Purga
+    purga_cx = center_x + 50
+    purga_color = (30, 144, 255)
+    if sistema.purga_flash > 0:
+        pygame.draw.circle(surface, purga_color, (purga_cx, ind_y), 14)
+    pygame.draw.circle(surface, purga_color, (purga_cx, ind_y), 14, 3)
+    draw_text_centered(surface, "PURGA", purga_cx, ind_y + 24, fonts["tiny"], purga_color)
+
+    # ─── Panel de métricas ───
+    met_top = ind_y + 52
+    met_w = 200
+    met_h = 130
+    met_left = center_x - met_w // 2
+    met_rect = pygame.Rect(met_left, met_top, met_w, met_h)
+    pygame.draw.rect(surface, (38, 38, 38), met_rect)
+    pygame.draw.rect(surface, (77, 77, 77), met_rect, 2)
+
+    draw_text_centered(surface, "MÉTRICAS", center_x, met_top + 14, fonts["met_title"])
+
+    metrics = [
+        (f"Químico: {sistema.quim_usado:.1f} u.", (255, 255, 80)),
+        (f"Agua: {int(sistema.agua_usada)} L", (80, 255, 255)),
+        (f"Purgas: {sistema.purgas}", (173, 216, 230)),
+        (f"Dosif.: {sistema.dosificaciones}", (255, 165, 0)),
+    ]
+    for i, (txt, col) in enumerate(metrics):
+        draw_text_centered(surface, txt, center_x, met_top + 36 + i * 18, fonts["metric"], col)
+
+    estado_text, estado_color = sistema.get_estado_text()
+    draw_text_centered(surface, f"● {estado_text}", center_x, met_top + met_h - 10, fonts["small"], estado_color)
+
+
+def draw_header(surface, fonts, sim_time):
+    draw_text_centered(
+        surface,
+        "CLARITY — Biosensor Óptico para Control de Biocarga en Reciclaje PET",
+        WIDTH // 2, 30, fonts["header"]
+    )
+    draw_text_centered(
+        surface,
+        f"Hora simulada: {sim_time / 3600:.1f}h / {HORAS}h",
+        WIDTH // 2, 56, fonts["clock"], (200, 200, 200)
+    )
+
+
+def draw_divider(surface):
+    pygame.draw.line(surface, (85, 85, 85), (DIVIDER_X, 75), (DIVIDER_X, HEIGHT - 70), 2)
+
+
+def draw_footer(surface, fonts):
+    # Leyenda de colores at very bottom
+    legend_y = HEIGHT - 22
+    total_legend_w = len(LEGEND_LABELS) * 120
+    legend_start_x = (WIDTH - total_legend_w) // 2
+
+    for i, (col, label) in enumerate(LEGEND_LABELS):
+        lx = legend_start_x + i * 120
+        pygame.draw.rect(surface, col, (lx, legend_y, 12, 12))
+        pygame.draw.rect(surface, (85, 85, 85), (lx, legend_y, 12, 12), 1)
+        draw_text_left(surface, label, lx + 16, legend_y - 1, fonts["legend"], (187, 187, 187))
+
+    # Panel de umbrales just above legend
+    panel_w = 780
+    panel_h = 24
+    panel_left = (WIDTH - panel_w) // 2
+    panel_top = legend_y - 30
+    panel_rect = pygame.Rect(panel_left, panel_top, panel_w, panel_h)
+    pygame.draw.rect(surface, (51, 51, 51), panel_rect)
+    pygame.draw.rect(surface, (85, 85, 85), panel_rect, 1)
+
+    threshold_text = f"Umbral Dosis: {UMBRAL_DOSIFICAR:,} UFC/mL  ·  Umbral Purga: {UMBRAL_PURGAR:,} UFC/mL  ·  Capacidad: {BIOCARGA_MAX:,} UFC/mL"
+    draw_text_centered(surface, threshold_text, WIDTH // 2, panel_top + 12, fonts["metric"], (255, 255, 80))
+
+
+def draw_speed_controls(surface, fonts, paused, speed_multiplier):
+    y = HEIGHT - 60
+    x = WIDTH - 20
+
+    speed_text = f"{'⏸ PAUSA' if paused else f'▶ {speed_multiplier}x'}"
+    speed_color = (255, 100, 100) if paused else (100, 255, 100)
+    rendered = fonts["small"].render(speed_text, True, speed_color)
+    rect = rendered.get_rect(topright=(x, y - 30))
+    surface.blit(rendered, rect)
+
+    help_text = "[Space] Pausa  [↑↓] Velocidad"
+    rendered = fonts["legend"].render(help_text, True, (120, 120, 120))
+    rect = rendered.get_rect(topright=(x, y - 12))
+    surface.blit(rendered, rect)
+
+
+# ──────────────────── Bucle principal ─────────────────────────────────────────
 
 def simular_3d():
-    """
-    Ejecuta simulación comparativa con visualización 3D lado a lado
-    """
     print("\n╔═══════════════════════════════════════════════════════════╗")
-    print("║     CLARITY — Simulación 3D Interactiva                  ║")
+    print("║     CLARITY — Simulación Interactiva (Pygame)            ║")
     print("╚═══════════════════════════════════════════════════════════╝")
     print(f"  Duración: {HORAS}h simulados")
     print(f"  Escala: 1 hora simulada = 1 segundo real")
     print(f"  Velocidad: {ESCALA_TIEMPO}x\n")
 
-    # Crear entorno (zoom sincronizado: invalida cache de imágenes al cambiar escala)
-    env = ZoomSyncEnvironment(trace=False, time_unit="seconds")
+    pygame.init()
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    pygame.display.set_caption("CLARITY — Simulación de Biosensor Óptico para Reciclaje PET")
+    clock = pygame.time.Clock()
 
-    # Configurar ventana de animación
-    env.animation_parameters(
-        animate=True,
-        width=1024,
-        height=768,
-        x0=0,
-        y0=0,
-        background_color="#1a1a1a",
-        foreground_color="white",
-        fps=30,
-        modelname="",
-        speed=ESCALA_TIEMPO
-    )
+    # ─── Fuentes ───
+    fonts = {
+        "header":    pygame.font.SysFont("Arial", 20, bold=True),
+        "clock":     pygame.font.SysFont("Arial", 15),
+        "title":     pygame.font.SysFont("Arial", 24, bold=True),
+        "small":     pygame.font.SysFont("Arial", 12),
+        "biocarga":  pygame.font.SysFont("Courier New", 32, bold=True),
+        "unit":      pygame.font.SysFont("Courier New", 13),
+        "met_title": pygame.font.SysFont("Arial", 14, bold=True),
+        "metric":    pygame.font.SysFont("Arial", 13),
+        "tiny":      pygame.font.SysFont("Arial", 11),
+        "legend":    pygame.font.SysFont("Arial", 10),
+    }
 
-    # ═══════════════════ TÍTULO PRINCIPAL ═══════════════════
-    sim.AnimateText(
-        text="CLARITY — Biosensor Óptico para Control de Biocarga en Reciclaje PET",
-        x=LAYOUT_CENTER_X, y=680,
-        font="Arial", fontsize=22,
-        textcolor="white",
-        xy_anchor="c"
-    )
-
-    # ═══════════════════ RELOJ DE SIMULACIÓN ═══════════════════
-    sim.AnimateText(
-        text=lambda arg, t: f"Hora simulada: {t/3600:.1f}h / {HORAS}h",
-        x=LAYOUT_CENTER_X, y=660,
-        fontsize=15,
-        textcolor="#cccccc",
-        xy_anchor="c"
-    )
-
-    # ═══════════════════ LÍNEA DIVISORIA ═══════════════════
-    sim.AnimateLine(
-        spec=(DIVIDER_CENTER_X, 60, DIVIDER_CENTER_X, 640),
-        linewidth=2,
-        linecolor="#555555"
-    )
-
-    # ═══════════════════ PANEL DE UMBRALES ═══════════════════
-    sim.AnimateRectangle(
-        spec=(LEFT_CONTENT_EDGE, 85, RIGHT_CONTENT_EDGE, 110),
-        fillcolor="#333333",
-        linewidth=1,
-        linecolor="#555555"
-    )
-
-    sim.AnimateText(
-        text=f"Umbral Dosis: {UMBRAL_DOSIFICAR:,} UFC/mL  ·  Umbral Purga: {UMBRAL_PURGAR:,} UFC/mL  ·  Capacidad: {BIOCARGA_MAX:,} UFC/mL",
-        x=LAYOUT_CENTER_X, y=97,
-        fontsize=12,
-        textcolor="yellow",
-        xy_anchor="c"
-    )
-
-    # ═══════════════════ LEYENDA DE COLORES ═══════════════════
-    legend_items = [
-        ("#0066cc", "<100 Limpio"),
-        ("#0099ff", "<200 Mínimo"),
-        ("#00cccc", "<350 Detectado"),
-        ("#cccc00", "<500 Precaución"),
-        ("#ff8800", "<1000 Tratando"),
-        ("#ff4400", "<3000 Crítico"),
-        ("#ff0000", ">3000 Purga"),
-    ]
-
-    legend_y  = 65
-    legend_x0 = LEFT_CONTENT_EDGE
-    legend_spacing = LAYOUT_WIDTH / max(1, len(legend_items) - 1)
-
-    for i, (col, label) in enumerate(legend_items):
-        lx = legend_x0 + i * legend_spacing
-        sim.AnimateRectangle(
-            spec=(lx, legend_y - 5, lx + 12, legend_y + 5),
-            fillcolor=col,
-            linewidth=1,
-            linecolor="#555555"
-        )
-        sim.AnimateText(
-            text=label,
-            x=lx + 15, y=legend_y,
-            fontsize=8,
-            textcolor="#bbbbbb",
-            xy_anchor="w"
-        )
-
-    # ═══════════════════ SISTEMA CIEGO (IZQUIERDA) ═══════════════════
+    # ─── Sistemas ───
     print("  [1/2] Iniciando sistema CIEGO (sin sensor)...")
-    tanque_ciego = TanqueAgua(name="tanque_ciego", env=env, modo="ciego", x_offset=LEFT_SYSTEM_CENTER)
-    plc_ciego = PLCControlador(name="plc_ciego", env=env, tanque=tanque_ciego)
+    sys_ciego = SistemaAgua("ciego")
+    plc_ciego = PLCControlador(sys_ciego)
+    t_ultima_dosis_ciego = 0.0
+    t_ultima_purga_ciego = 0.0
 
-    # ═══════════════════ SISTEMA CLARITY (DERECHA) ═══════════════════
     print("  [2/2] Iniciando sistema CLARITY (con biosensor)...")
-    tanque_clarity = TanqueAgua(name="tanque_clarity", env=env, modo="clarity", x_offset=RIGHT_SYSTEM_CENTER)
-    plc_clarity = PLCControlador(name="plc_clarity", env=env, tanque=tanque_clarity)
-    sensor = BiosensorClarity(name="sensor_clarity", env=env,
-                              tanque=tanque_clarity, plc=plc_clarity)
+    sys_clarity = SistemaAgua("clarity")
+    plc_clarity = PLCControlador(sys_clarity)
+    sensor = BiosensorClarity(sys_clarity, plc_clarity)
 
     print("\n  ► Simulación en progreso...")
-    print("  ► Observa la diferencia entre ambos sistemas")
-    print("  ► Cierra la ventana de animación para ver el reporte final\n")
+    print("  ► [Space] Pausar  [↑↓] Velocidad  [Esc/Cerrar] Salir\n")
 
-    # Ejecutar simulación (SimulationStopped se lanza al cerrar la ventana)
-    try:
-        env.run(till=T_TOTAL)
-    except sim.SimulationStopped:
-        print("  ► Ventana de animación cerrada.")
+    sim_time = 0.0
+    speed_multiplier = ESCALA_TIEMPO
+    paused = False
+    running = True
 
-    return tanque_ciego, tanque_clarity
+    while running:
+        dt_real = clock.tick(FPS) / 1000.0
+
+        # ─── Eventos ───
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    running = False
+                elif event.key == pygame.K_SPACE:
+                    paused = not paused
+                elif event.key == pygame.K_UP:
+                    speed_multiplier = min(speed_multiplier * 2, 28800)
+                elif event.key == pygame.K_DOWN:
+                    speed_multiplier = max(speed_multiplier // 2, 60)
+
+        # ─── Avance de simulación ───
+        if not paused and sim_time < T_TOTAL:
+            sim_dt = dt_real * speed_multiplier
+            steps = max(1, int(sim_dt / DT))
+            step_dt = sim_dt / steps
+
+            for _ in range(steps):
+                if sim_time >= T_TOTAL:
+                    break
+
+                sys_ciego.step(step_dt)
+                sys_clarity.step(step_dt)
+
+                t_ultima_dosis_ciego, t_ultima_purga_ciego = plc_ciego.step_ciego(
+                    sim_time, t_ultima_dosis_ciego, t_ultima_purga_ciego
+                )
+
+                sensor.step(sim_time)
+
+                sim_time += step_dt
+
+        # ─── Dibujo ───
+        screen.fill(BG_COLOR)
+
+        draw_header(screen, fonts, sim_time)
+        draw_divider(screen)
+        draw_tank(screen, sys_ciego, LEFT_CENTER, fonts, sim_time)
+        draw_tank(screen, sys_clarity, RIGHT_CENTER, fonts, sim_time)
+        draw_footer(screen, fonts)
+        draw_speed_controls(screen, fonts, paused, speed_multiplier)
+
+        if sim_time >= T_TOTAL:
+            draw_text_centered(
+                screen, "SIMULACIÓN COMPLETADA — Presiona Esc para ver reporte",
+                WIDTH // 2, HEIGHT // 2,
+                fonts["title"], (255, 255, 100)
+            )
+
+        pygame.display.flip()
+
+    pygame.quit()
+    return sys_ciego, sys_clarity
 
 
 # ──────────────────── Reporte comparativo ─────────────────────────────────────
 
-def reporte(ciego: TanqueAgua, clarity: TanqueAgua):
+def reporte(ciego: SistemaAgua, clarity: SistemaAgua):
     def delta(a, b):
         if a == 0:
             return "  —"
@@ -648,7 +521,7 @@ def reporte(ciego: TanqueAgua, clarity: TanqueAgua):
 
     W = 70
     print("\n" + "═" * W)
-    print("  CLARITY — Resultados de Simulación 3D")
+    print("  CLARITY — Resultados de Simulación")
     print(f"  Planta Reciclaje PET | {HORAS}h operación")
     print("═" * W)
     print(f"\n  {'Métrica':<38} {'Ciego':>8} {'Clarity':>9} {'Δ':>8}")
