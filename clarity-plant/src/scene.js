@@ -116,20 +116,26 @@ createPETBale(-18.5, 1.3, -4.8, 0)
 createPETBale(15, 0.1, -6, 0.3)
 createPETBale(15, 1.3, -6, 0.1)
 
+// Columnas estructurales de la nave industrial (Despejadas del centro)
 const colMat = new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.8 })
 for (let x = -25; x <= 25; x += 12) {
-  const col = new THREE.Mesh(new THREE.BoxGeometry(0.8, 15, 0.8), colMat)
-  col.position.set(x, 7, -8)
-  scene.add(col)
+  // Fila trasera
+  const col1 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 15, 0.8), colMat)
+  col1.position.set(x, 7, -6) 
+  scene.add(col1)
+  // Fila delantera (pasando la línea 2)
+  const col2 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 15, 0.8), colMat)
+  col2.position.set(x, 7, 14) 
+  scene.add(col2)
 }
 
 // ══════════════════════════════════════════════════════
 //  ESCENARIO INDUSTRIAL COMPLETO — PLANTA DE RECICLAJE
 // ══════════════════════════════════════════════════════
 
-// ── VIGAS ESTRUCTURALES DEL TECHO ────────────────────
+/*// ── VIGAS ESTRUCTURALES DEL TECHO ────────────────────
 const beamMat = new THREE.MeshStandardMaterial({ color: 0x1a1a22, metalness: 0.85, roughness: 0.3 })
-for (let x = -24; x <= 24; x += 8) {
+for (let x = -24; x <= 24; x += 11.5) {
   // Vigas horizontales transversales (eje Z)
   const beam = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.5, 18), beamMat)
   beam.position.set(x, 11, -2)
@@ -146,7 +152,7 @@ scene.add(mainBeam)
 const mainBeam2 = mainBeam.clone()
 mainBeam2.position.z = 5
 scene.add(mainBeam2)
-
+*/
 // ── LUMINARIAS INDUSTRIALES DE TECHO ─────────────────
 for (let x = -20; x <= 20; x += 8) {
   // Carcasa de la luminaria
@@ -169,9 +175,9 @@ for (let x = -20; x <= 20; x += 8) {
   workLight.position.set(x, 10.0, 0)
   scene.add(workLight)
   // Cable desde viga
-  const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.6, 4), beamMat)
+  /*const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.6, 4), beamMat)
   cable.position.set(x, 10.95, 0)
-  scene.add(cable)
+  scene.add(cable)*/
 }
 
 // ── SISTEMA DE TUBERÍAS OVERHEAD ─────────────────────
@@ -286,58 +292,6 @@ for (const x of [-16, -2, 12]) {
   scene.add(grill)
 }
 
-// ── SEÑALIZACIÓN DE SEGURIDAD ─────────────────────────
-function createSafetySign(x, y, z, rotY, color, emissive) {
-  const panel = new THREE.Mesh(
-    new THREE.BoxGeometry(0.6, 0.4, 0.04),
-    new THREE.MeshStandardMaterial({ color: 0x223344, metalness: 0.5 })
-  )
-  panel.position.set(x, y, z)
-  panel.rotation.y = rotY
-  scene.add(panel)
-  const face = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.52, 0.32),
-    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 })
-  )
-  face.position.set(x + Math.sin(rotY)*0.025, y, z + Math.cos(rotY)*0.025)
-  face.rotation.y = rotY
-  scene.add(face)
-  // LED de borde
-  const led = new THREE.Mesh(new THREE.BoxGeometry(0.64, 0.44, 0.02),
-    new THREE.MeshBasicMaterial({ color: emissive, transparent: true, opacity: 0.4 }))
-  led.position.set(x, y, z)
-  led.rotation.y = rotY
-  scene.add(led)
-}
-createSafetySign(-20, 2.5,  4.5, 0,          0xffcc00, 0xff8800)  // Advertencia tolva
-createSafetySign(-14, 3.5,  4.0, 0,          0xff2200, 0xff0000)  // Peligro Trommel
-createSafetySign( -6, 2.5,  4.0, 0,          0x00aa55, 0x00ff44)  // Zona húmeda
-createSafetySign(  2, 3.0,  4.0, 0,          0xff2200, 0xff0000)  // Peligro Molino
-createSafetySign( 12, 4.5,  4.0, 0,          0x0066ff, 0x00aaff)  // Tanque Clarity
-
-// ── LUCES DE ESTADO EN LAS MÁQUINAS (semáforo industrial) ─
-function createStatusLight(x, y, z) {
-  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.7, 6),
-    new THREE.MeshStandardMaterial({ color: 0x1a2530, metalness: 0.8 }))
-  pole.position.set(x, y + 0.35, z)
-  scene.add(pole)
-  for (const [dy, col, emissive] of [
-    [0.7, 0x003300, 0x00ff44],
-    [0.45, 0x333300, 0xffcc00],
-    [0.2, 0x330000, 0xff2200],
-  ]) {
-    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8),
-      new THREE.MeshStandardMaterial({ color: col, emissive, emissiveIntensity: 0.8 }))
-    bulb.position.set(x, y + dy, z)
-    scene.add(bulb)
-  }
-}
-createStatusLight(-20, 2.6, 1.6)  // Tolva
-createStatusLight(-14, 3.5, 1.1)  // Trommel
-createStatusLight( -6, 2.6, 1.4)  // Pre-lavado
-createStatusLight(  2, 2.8, 1.4)  // Molino
-createStatusLight( 10, 4.5, 2.5)  // Tanque Clarity
-createStatusLight( 16, 3.2, 1.6)  // Enjuague
 
 // ── PASARELA METÁLICA ELEVADA (sobre la línea) ────────
 const walkMat = new THREE.MeshStandardMaterial({ color: 0x2a3a44, metalness: 0.75, roughness: 0.5 })
@@ -397,8 +351,8 @@ scene.add(line2)
 
 // ── TECHO INDUSTRIAL (parcialmente visible) ──────────
 const roofMat = new THREE.MeshStandardMaterial({ color: 0x0d1520, metalness: 0.3, roughness: 0.9 })
-const roof = new THREE.Mesh(new THREE.BoxGeometry(60, 0.6, 22), roofMat)
-roof.position.set(0, 12, -2)
+const roof = new THREE.Mesh(new THREE.BoxGeometry(60, 0.6, 60), roofMat)
+roof.position.set(0, 13, -2)
 scene.add(roof)
 // Claraboyas (paneles de luz en el techo)
 for (let x = -16; x <= 16; x += 10) {
@@ -440,7 +394,7 @@ createPallet( 22,  -4.5)
 
 // ── CARRETILLA ELEVADORA (estática, ambiental) ─────────
 const forkliftGroup = new THREE.Group()
-forkliftGroup.position.set(24, -0.5, 0)
+forkliftGroup.position.set(30, -0.5, 0)
 forkliftGroup.rotation.y = Math.PI * 0.6
 const fMat = new THREE.MeshStandardMaterial({ color: 0xdd8800, metalness: 0.6, roughness: 0.4 })
 const fBody = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.1, 1.8), fMat)
@@ -468,3 +422,61 @@ for (const [wx, wz] of [[-0.55,-0.75],[0.55,-0.75],[-0.55,0.75],[0.55,0.75]]) {
   wheel.position.set(wx, 0.1, wz); forkliftGroup.add(wheel)
 }
 scene.add(forkliftGroup)
+
+
+function createBottleBunker() {
+  const bunkerGroup = new THREE.Group()
+  bunkerGroup.position.set(-28, -0.5, 0) // Al inicio de la línea
+
+  // Muros de contención de hormigón
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x445566, roughness: 0.9 })
+  
+  const backWall = new THREE.Mesh(new THREE.BoxGeometry(0.4, 2.5, 6.0), wallMat)
+  backWall.position.set(-3.8, 1.25, 0); bunkerGroup.add(backWall)
+  
+  const leftWall = new THREE.Mesh(new THREE.BoxGeometry(5.0, 2.5, 0.4), wallMat)
+  leftWall.position.set(-1.5, 1.25, -2.8); bunkerGroup.add(leftWall)
+  
+  const rightWall = new THREE.Mesh(new THREE.BoxGeometry(5.0, 2.5, 0.4), wallMat)
+  rightWall.position.set(-1.5, 1.25, 2.8); bunkerGroup.add(rightWall)
+
+  // Montaña masiva de botellas (InstancedMesh para rendimiento)
+  const geom = new THREE.CylinderGeometry(0.12, 0.12, 0.55, 6) // Simplificada
+  const mat = new THREE.MeshStandardMaterial({ roughness: 0.3, transparent: true, opacity: 0.8 })
+  
+  const BOTTLE_COUNT = 1500
+  const instancedBottles = new THREE.InstancedMesh(geom, mat, BOTTLE_COUNT)
+  const dummy = new THREE.Object3D()
+  const color = new THREE.Color()
+
+  const petColors = [0x4455aa, 0x22aa44, 0x2244aa, 0xdddddd, 0x55ccdd, 0x667788]
+
+  for (let i = 0; i < BOTTLE_COUNT; i++) {
+    // Generar posición en forma de "montaña" (más alta hacia la pared del fondo)
+    const xPos = (Math.random() * 4.5) - 3.5 // Concentrado atrás
+    const zPos = (Math.random() - 0.5) * 5.0
+    
+    // La altura máxima depende de qué tan atrás esté (creando una pendiente)
+    const maxHeight = 2.2 * (1.0 - ((xPos + 3.5) / 4.5))
+    const yPos = (Math.random() * maxHeight) + 0.1
+
+    dummy.position.set(xPos, yPos, zPos)
+    
+    // Rotaciones y deformaciones caóticas
+    dummy.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI)
+    dummy.scale.set(1, 0.5 + Math.random() * 0.5, 1) // Algunas aplastadas
+    
+    dummy.updateMatrix()
+    instancedBottles.setMatrixAt(i, dummy.matrix)
+
+    // Colores sucios aleatorios
+    const colHex = petColors[Math.floor(Math.random() * petColors.length)]
+    color.setHex(colHex)
+    instancedBottles.setColorAt(i, color)
+  }
+  
+  bunkerGroup.add(instancedBottles)
+  scene.add(bunkerGroup)
+}
+
+createBottleBunker()

@@ -125,17 +125,17 @@ canvas {
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: 6px;
+  gap: 10px;
   align-items: center;
 }
 .stage {
   padding: 7px 16px;
   border: 1px solid #004455;
-  font-size: 9px;
+  font-size: 20px;
   letter-spacing: 2px;
   color: #003344;
   background: rgba(0,10,20,0.8);
-  transition: all 0.5s;
+  transition: all 0.7s;
   position: relative;
 }
 .stage.active {
@@ -211,13 +211,12 @@ canvas {
   100% { transform: translate(0, 2px); }
 }
 
-
-/* Water Savings Panel (AMPLIADO Y MEJORADO) */
+/* ── Water Savings Panel (A PRUEBA DE NÚMEROS GIGANTES) ── */
 .water-panel {
   position: absolute;
   bottom: 80px;
   left: 30px;
-  width: 380px; /* Más ancho */
+  width: 500px; /* Suficientemente ancho para millones de litros */
   background: linear-gradient(135deg, rgba(0,15,25,0.95), rgba(0,30,45,0.85));
   border: 1px solid #00f5ff44;
   border-left: 4px solid #00f5ff;
@@ -225,138 +224,160 @@ canvas {
   backdrop-filter: blur(15px);
   box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 0 20px rgba(0,245,255,0.05);
 }
+
 .water-title {
   font-family: 'Orbitron', monospace;
-  font-size: 16px; /* Más grande */
+  font-size: 16px; 
   font-weight: 900;
   letter-spacing: 5px;
   color: #00f5ff;
   text-shadow: 0 0 15px #00f5ff88;
 }
+
 .water-subtitle {
   font-size: 10px;
   letter-spacing: 3px;
   color: #0088aa;
-  margin-bottom: 20px;
+  margin-bottom: 15px; 
   margin-top: 4px;
   text-transform: uppercase;
 }
+
+.metric-section-title {
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 2px;
+  margin-top: 15px;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
 .water-row {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 15px;
+  margin-bottom: 12px;
 }
+
 .water-label {
   font-size: 11px;
   font-weight: bold;
   letter-spacing: 2px;
   color: #cceeff;
-  width: 80px;
+  width: 85px;
   display: flex;
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
   text-transform: uppercase;
 }
+
 .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .dot-standard { background: #ff4400; box-shadow: 0 0 8px #ff4400aa; }
 .dot-clarity  { background: #00f5ff; box-shadow: 0 0 8px #00f5ffaa; }
+
 .water-bar-track {
   flex: 1;
-  height: 10px; /* Barras más gruesas */
+  height: 10px; 
   background: rgba(0,10,15,0.8);
   border-radius: 5px;
   overflow: hidden;
   border: 1px solid #004455;
 }
+
 .water-bar-fill {
   height: 100%;
   border-radius: 4px;
   transition: width 0.3s linear;
 }
+
 .standard-fill { background: linear-gradient(90deg, #aa2200, #ff4400); }
 .clarity-fill  { background: linear-gradient(90deg, #0066aa, #00f5ff); box-shadow: 0 0 10px #00f5ff66;}
+
 .water-number {
   font-family: 'Orbitron', monospace;
-  font-size: 12px;
+  font-size: 13px; /* Letra un pelo más grande */
   font-weight: 700;
-  color: #ff4400; /* Color por defecto para el ciego */
-  width: 85px;
+  width: 120px; /* Ancho reservado para que entren los millones con comas */
   text-align: right;
   flex-shrink: 0;
+  white-space: nowrap; /* ESTO EVITA QUE LA "L" CAIGA A LA SIGUIENTE LÍNEA */
 }
 
-/* Rejilla de estadísticas (Purgas/Dosis) */
-.stats-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 15px;
-  margin-top: 20px;
-  margin-bottom: 20px;
-  padding: 12px;
-  background: rgba(0,0,0,0.3);
-  border-radius: 6px;
-  border: 1px solid #003344;
-}
-.stat-box {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-.stat-label {
-  font-size: 9px;
-  letter-spacing: 2px;
-  color: #0088aa;
-  text-transform: uppercase;
-  margin-bottom: 4px;
-}
-.stat-compare {
-  font-family: 'Orbitron', monospace;
-  font-size: 14px;
-  font-weight: bold;
-}
-.stat-bad { color: #ff4400; }
-.stat-good { color: #00f5ff; text-shadow: 0 0 8px #00f5ff66; }
-.stat-vs { color: #556677; font-size: 10px; margin: 0 4px; }
-
-/* El Gran Total (Resaltado Máximo) */
+/* ── El Gran Total ── */
 .water-total {
   display: flex;
-  flex-direction: column;
-  justify-content: center;
+  justify-content: space-between; 
   align-items: center;
   margin-top: 15px;
   padding-top: 15px;
   border-top: 1px dashed #005566;
 }
-.water-total-label { 
-  font-size: 12px; 
-  font-weight: bold;
-  letter-spacing: 4px; 
-  color: #00ccff; 
-  margin-bottom: 5px;
+
+.total-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
+
+.total-col:last-child {
+  border-left: 1px dashed #005566;
+}
+
+.water-total-label { 
+  font-size: 11px; 
+  font-weight: bold;
+  letter-spacing: 3px; 
+  color: #00ccff; 
+  margin-bottom: 8px; 
+  white-space: nowrap;
+}
+
 .water-total-value {
   display: flex;
-  align-items: center;
-  gap: 15px;
+  align-items: baseline; /* Alinea el texto gigante con el botón de porcentaje */
+  justify-content: center; 
+  gap: 12px;
+  white-space: nowrap; /* EVITA EL SALTO DE LÍNEA EN EL TOTAL */
 }
-#totalSavedLiters {
+
+#totalSavedLiters, #totalSavedQuim {
   font-family: 'Orbitron', monospace;
-  font-size: 32px; /* GIGANTE */
+  font-size: 26px; /* Ajuste perfecto para que no desborde */
   font-weight: 900;
-  color: #00ffaa;
-  text-shadow: 0 0 20px #00ffaa88;
+  line-height: 1;
 }
+
+#totalSavedLiters {
+  color: #00ffaa;
+  text-shadow: 0 0 15px #00ffaa88;
+}
+
+#totalSavedQuim {
+  color: #ffcc00;
+  text-shadow: 0 0 15px #ffcc0088;
+}
+
 .pct-badge {
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+#totalSavedPct {
   background: rgba(0, 255, 170, 0.15);
   border: 1px solid #00ffaa;
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-family: 'Share Tech Mono', monospace;
-  font-size: 16px;
-  font-weight: bold;
   color: #00ffaa;
-  box-shadow: 0 0 10px #00ffaa44;
+  box-shadow: 0 0 8px #00ffaa44;
+}
+
+.quim-badge {
+  background: rgba(255, 204, 0, 0.15);
+  border: 1px solid #ffcc00;
+  color: #ffcc00;
+  box-shadow: 0 0 8px #ffcc0044;
 }

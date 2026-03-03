@@ -6,9 +6,9 @@ import { scene } from '../scene.js'
  * Responsabilidad: Tanque de enjuague (x=16) y Estación de Súper Sacos (x=22).
  */
 
-export function createRinseTank() {
+export function createRinseTank(posX = 20.5, posZ = 0) {
   const group = new THREE.Group()
-  group.position.set(16, 0, 0) // Posición exacta tras el tanque Clarity
+  group.position.set(posX, 0, posZ) // Posición exacta tras el tanque Clarity
 
   // Tanque de Enjuague (Más industrial y robusto)
   const body = new THREE.Mesh(
@@ -42,9 +42,9 @@ export function createRinseTank() {
   return group
 }
 
-export function createCollectionZone() {
+export function createCollectionZone(posX = 25, posZ = 0) {
   const group = new THREE.Group()
-  group.position.set(22, 0, 0) // Posición final
+  group.position.set(posX, 0, posZ) // Posición final
 
   // Estructura metálica para colgar el saco
   const frameMat = new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.8 })

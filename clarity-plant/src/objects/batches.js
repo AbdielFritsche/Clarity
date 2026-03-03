@@ -1,39 +1,40 @@
 import * as THREE from 'three'
 import { scene } from '../scene.js'
 
-const BATCH_COUNT = 15 
-const START_X = -22  
-const END_X = 22.5
-const MILL_X = 1.5;
+const BATCH_COUNT = 20 
+const START_X = -24  
+const END_X = 26
+const MILL_X = 2.0;
 
-// Colores típicos de botellas PET reales (Agua, Sprite, Retornables, etc.)
 const PET_COLORS = [0xaaddff, 0x22aa44, 0x2244aa, 0xdddddd, 0x55ccdd]
 const CAP_COLORS = [0xff0000, 0xffffff, 0x0000ff, 0x22aa44]
 
-function getElevation(x) {
-  if (x < -18) return 0.6; 
-  if (x >= -18 && x < -16) return 0.6 + ((x + 18) * 1.0); 
-  if (x >= -16 && x < -13) return 2.6;  // nivel Trommel
-  if (x >= -13 && x < -10.5) return 2.6 - ((x + 13) * 0.52);  // bajada a Pre-lavado
-  if (x >= -10.5 && x < -4.0) return 1.8; // nivel Pre-lavado
-  if (x >= -4.0 && x < -0.2) return 1.8 - ((x + 4.0) * 0.33); // bajada a Molino
-  if (x >= -0.2 && x < 3.2)  return 1.1;  // zona Molino
-  if (x >= 3.2  && x < 6.5)  return 1.1 + ((x - 3.2) * 0.64); // subida a Clarity
-  if (x >= 6.5  && x < 11.5) return 3.15; // nivel Clarity
-  if (x >= 11.5 && x < 14.5) return 3.15 - ((x - 11.5) * 0.25); // bajada a Enjuague
-  if (x >= 14.5 && x < 17.5) return 2.4;  // nivel Enjuague
-  if (x >= 17.5 && x < 21.5) return 2.4 + ((x - 17.5) * 0.35); // subida final
-  if (x >= 21.5) return Math.max(1.2, 4.0 - ((x - 21.5) * 4.0)); 
-  return 0.6; 
+function getElevation(x, isLine2) {
+  if (x < -21) return 0.6; 
+  if (x >= -21 && x < -19) return 0.6; 
+  if (x >= -19 && x < -12.5) return 0.6 + ((x + 19) / 6.5) * 3.2; 
+  if (x >= -12.5 && x < -7.5) return 3.2; // Tanque Pre-lavado
+  if (x >= -7.5 && x < -6.5) return 3.2;  // Salida plana clasificadora
+  if (x >= -6.5 && x < -0.2) {
+    if (isLine2) return 1.6 - ((x + 6.5) / 6.3) * 0.3; // Rampa Línea 2
+    return 3.2 - ((x + 6.5) / 6.3) * 1.9; // Rampa Línea 1
+  }
+  if (x >= -0.2 && x < 3.2) return 1.1; 
+  if (x >= 3.2 && x < 11.5) return 1.1 + ((x - 3.2) / 8.3) * 2.7; 
+  if (x >= 11.5 && x < 16.5) return 3.2; 
+  if (x >= 16.5 && x < 19.5) return 3.2 - ((x - 16.5) / 3.0) * 0.4; 
+  if (x >= 19.5 && x < 21.5) return 2.45; 
+  if (x >= 21.5 && x < 24.5) return 2.45 + ((x - 21.5) / 3.0) * 1.35; 
+  if (x >= 24.5) return Math.max(1.2, 4.0 - ((x - 24.5) * 4.0)); 
+  return 0.6;
 }
+
 function createBottle() {
   const group = new THREE.Group()
   const baseColor = PET_COLORS[Math.floor(Math.random() * PET_COLORS.length)]
   const capColor = CAP_COLORS[Math.floor(Math.random() * CAP_COLORS.length)]
 
-  const bodyMat = new THREE.MeshStandardMaterial({ 
-    color: baseColor, metalness: 0.1, roughness: 0.4, transparent: true, opacity: 0.75 
-  })
+  const bodyMat = new THREE.MeshStandardMaterial({ color: baseColor, metalness: 0.1, roughness: 0.4, transparent: true, opacity: 0.75 })
   const capMat = new THREE.MeshStandardMaterial({ color: capColor, roughness: 0.8 })
 
   const base = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.20, 0.08, 10), bodyMat)
@@ -46,9 +47,7 @@ function createBottle() {
   neck.position.y = 0.94; group.add(neck)
   const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.115, 0.10, 0.10, 8), capMat)
   cap.position.y = 1.08; group.add(cap)
-  const label = new THREE.Mesh(new THREE.CylinderGeometry(0.225, 0.225, 0.32, 10), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, transparent: true, opacity: 0.3 }))
-  label.position.y = 0.36; group.add(label)
-
+  
   body.scale.set(1, 1, 0.5 + Math.random() * 0.5) 
   group.scale.set(0.7 + Math.random() * 0.4, 0.7 + Math.random() * 0.4, 0.7 + Math.random() * 0.4)
 
@@ -57,13 +56,13 @@ function createBottle() {
 
   const flakesGeo = new THREE.BufferGeometry()
   const flakePos = []
-  for(let i=0; i<60; i++) flakePos.push((Math.random()-0.5)*0.8, (Math.random()-0.5)*0.1, (Math.random()-0.5)*0.8) // Más planos inicialmente
+  for(let i=0; i<60; i++) flakePos.push((Math.random()-0.5)*0.8, (Math.random()-0.5)*0.1, (Math.random()-0.5)*0.8) 
   flakesGeo.setAttribute('position', new THREE.Float32BufferAttribute(flakePos, 3))
   const flakes = new THREE.Points(flakesGeo, new THREE.PointsMaterial({ color: baseColor, size: 0.15 }))
   flakes.visible = false
   group.add(flakes)
   
-  group.userData = { bodyMat, capMat, flakes, meshes: [base, body, shoulder, neck, cap, label], originalScale: group.scale.clone() }
+  group.userData = { flakes, meshes: [base, body, shoulder, neck, cap], originalScale: group.scale.clone(), originalColor: baseColor }
   return group
 }
 
@@ -71,7 +70,7 @@ export function createBatches() {
   const batches = []
   for (let i = 0; i < BATCH_COUNT; i++) {
     const bottle = createBottle()
-    bottle.position.set(START_X + i * 3.0, 0, (Math.random() - 0.5) * 0.8)
+    bottle.position.set(START_X + i * 2.5, 0, (Math.random() - 0.5) * 0.8)
     bottle.userData.speed = 1.5 + Math.random() * 0.8
     bottle.userData.rollSpeed = (Math.random() > 0.5 ? 1 : -1) * (1.5 + Math.random() * 3)
     scene.add(bottle)
@@ -82,25 +81,60 @@ export function createBatches() {
 
 export function updateBatches(batches, dt, t) {
   for (const b of batches) {
-    b.position.x += b.userData.speed * dt
+    const isGreen = b.userData.originalColor === 0x22aa44; 
     const isFlakes = b.position.x > MILL_X;
+    const isLine2 = b.position.z > 4.0; 
+
+    // ── RUTA DE MERMA (Banda Transversal alineada Z=1.0 a Z=8.0) ──
+    if (isGreen && b.position.x >= -6.5 && b.position.z < 8.0) {
+      b.position.x = -6.5; // Frenamos en X exactamente en la nueva banda
+      b.position.z += b.userData.speed * dt * 1.5; 
+      
+      let wasteY = 3.1;
+      if (b.position.z > 1.0 && b.position.z <= 8.0) {
+        wasteY = 3.1 - ((b.position.z - 1.0) / 7.0) * 1.5; 
+      }
+      b.position.y = wasteY + (Math.sin(b.position.z * 12) * 0.04);
+      b.rotation.x = Math.PI / 2;
+      b.rotation.y += b.userData.rollSpeed * dt;
+      
+      if (b.position.z >= 8.0) { b.position.z = 8.0; b.position.y = 1.6; } 
+      continue;
+    }
+
+    // ── RUTA PRINCIPAL ──
+    b.position.x += b.userData.speed * dt;
+    const noise = Math.sin(b.position.x * 12) * 0.04;
+    const prewashZone = b.position.x >= -12.5 && b.position.x <= -7.5;
+    const sortingZone = b.position.x > -7.5 && b.position.x < -6.5; // La nueva plataforma
     
-    // Físicas estabilizadas
     if (!isFlakes) {
-      // Botellas enteras: Botan y ruedan
-      const noise = Math.sin(b.position.x * 12) * 0.04
-      b.position.y = getElevation(b.position.x) + noise
-      b.rotation.y += b.userData.rollSpeed * dt
-      b.rotation.z += b.userData.rollSpeed * 0.3 * dt
-      b.rotation.x = Math.PI / 2; // Mantener acostadas
+      b.rotation.x = Math.PI / 2;
+      b.rotation.y += b.userData.rollSpeed * dt;
+      
+      if (prewashZone || sortingZone) {
+        if (prewashZone) {
+          b.position.z = Math.sin(t * 2 + b.rotation.z) * 1.0; 
+        }
+        b.position.y = getElevation(b.position.x, false) + noise;
+        
+        // Se acomodan en sus carriles ANTES de llegar a X=-6.5
+        if (isGreen) {
+          b.position.z = THREE.MathUtils.lerp(b.position.z, 1.5, dt * 3); // Carril descarte
+        } else {
+          b.position.z = THREE.MathUtils.lerp(b.position.z, 0.0, dt * 3); // Carril principal
+        }
+      } else {
+        b.position.y = getElevation(b.position.x, isLine2) + noise;
+        const targetZ = isLine2 ? 8.0 : 0.0;
+        b.position.z = THREE.MathUtils.lerp(b.position.z, targetZ, 4 * dt);
+      }
     } else {
-      // Hojuelas (Flakes): Movimiento estrictamente lineal sobre la cinta
-      b.position.y = getElevation(b.position.x) + 0.1 // Ligeramente elevado sobre la banda
-      b.rotation.set(0, 0, 0); // Bloquear rotación completa del grupo para que no "bote"
+      b.position.y = getElevation(b.position.x, isLine2) + 0.1;
+      b.rotation.set(0, 0, 0); 
     }
     
     const distToMill = b.position.x - MILL_X;
-    
     if (distToMill > -1.5 && distToMill < 0) {
       const crush = Math.max(0.1, 1.0 - Math.abs(distToMill));
       b.scale.set(b.userData.originalScale.x, crush * b.userData.originalScale.y, crush * b.userData.originalScale.z); 
@@ -109,25 +143,19 @@ export function updateBatches(batches, dt, t) {
     if (isFlakes) {
       b.userData.meshes.forEach(m => m.visible = false)
       b.userData.flakes.visible = true
-      
-      // Solo giran sobre su propio eje Y, plano sobre la cinta
       b.userData.flakes.rotation.y += dt * 1.5 
-      b.userData.flakes.rotation.x = 0; 
-      b.userData.flakes.rotation.z = 0;
-      
       const expand = Math.min(1.5, 1.0 + (b.position.x - MILL_X) * 0.2)
-      b.userData.flakes.scale.set(expand, 1.0, expand) // No expandir en Y para mantenerlos planos
+      b.userData.flakes.scale.set(expand, 1.0, expand)
     } else {
       b.userData.meshes.forEach(m => m.visible = true)
       b.userData.flakes.visible = false
-      b.userData.flakes.scale.set(1,1,1)
       if (distToMill <= -1.5) b.scale.copy(b.userData.originalScale) 
     }
 
     if (b.position.x > END_X) {
-      b.position.x = START_X
-      b.position.z = (Math.random() - 0.5) * 0.8
-      b.scale.copy(b.userData.originalScale)
+      b.position.x = START_X;
+      b.position.z = (Math.random() - 0.5) * 0.8;
+      b.scale.copy(b.userData.originalScale);
     }
   }
 }

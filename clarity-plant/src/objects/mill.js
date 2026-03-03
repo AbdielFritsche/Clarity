@@ -20,9 +20,9 @@ import { scene } from '../scene.js'
  * Exporta: { group, rotorDrum, blades, augerShaft, waterDrops }
  * La simulación rota rotorDrum, blades y augerShaft cada frame.
  */
-export function createMill() {
+export function createMill(posX = 1.5, posZ = 0) {
   const group = new THREE.Group()
-  group.position.set(1.5, 0, 0)
+  group.position.set(posX, 0, posZ)
 
   // ── Materiales ────────────────────────────────────────
   const matSteel  = new THREE.MeshStandardMaterial({ color: 0x3a4a55, metalness: 0.88, roughness: 0.18 })

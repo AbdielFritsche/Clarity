@@ -50,7 +50,8 @@
         <div class="water-title">MÉTRICAS DE CONSUMO</div>
         <div class="water-subtitle">Comparativa: Ciego vs Clarity</div>
         
-        <div class="water-row" style="margin-top: 15px;">
+        <div class="metric-section-title" style="color: #00f5ff;">AGUA (LITROS)</div>
+        <div class="water-row">
           <div class="water-label"><div class="dot dot-standard"></div> Ciego</div>
           <div class="water-bar-track"><div class="water-bar-fill standard-fill" style="width: 100%"></div></div>
           <div class="water-number" id="aguaCiego">0 L</div>
@@ -61,37 +62,44 @@
           <div class="water-number" style="color: #00f5ff;" id="aguaClarity">0 L</div>
         </div>
 
-        <div class="stats-grid">
-          <div class="stat-box">
-            <span class="stat-label">Purgas</span>
-            <div class="stat-compare">
-              <span id="purgasCiego" class="stat-bad">0</span> <span class="stat-vs">vs</span> <span id="purgasClarity" class="stat-good">0</span>
-            </div>
-          </div>
-          <div class="stat-box">
-            <span class="stat-label">Dosis Quím.</span>
-            <div class="stat-compare">
-              <span id="dosisCiego" class="stat-bad">0</span> <span class="stat-vs">vs</span> <span id="dosisClarity" class="stat-good">0</span>
-            </div>
-          </div>
+        <div class="metric-section-title" style="color: #ffcc00;">QUÍMICOS (LITROS)</div>
+        <div class="water-row">
+          <div class="water-label"><div class="dot" style="background:#ffaa00; box-shadow:0 0 6px #ffaa0088;"></div> Ciego</div>
+          <div class="water-bar-track"><div class="water-bar-fill" style="background: linear-gradient(90deg, #aa6600, #ffaa00); width: 100%"></div></div>
+          <div class="water-number" style="color: #ffaa00;" id="quimCiego">0 L</div>
+        </div>
+        <div class="water-row">
+          <div class="water-label"><div class="dot" style="background:#00ff88; box-shadow:0 0 6px #00ff8888;"></div> Clarity</div>
+          <div class="water-bar-track"><div class="water-bar-fill" id="quimClarityBar" style="background: linear-gradient(90deg, #00aa55, #00ff88); width: 0%"></div></div>
+          <div class="water-number" style="color: #00ff88;" id="quimClarity">0 L</div>
         </div>
 
         <div class="water-total">
-          <div class="water-total-label">AGUA AHORRADA</div>
-          <div class="water-total-value">
-            <span id="totalSavedLiters">0 L</span> 
-            <span id="totalSavedPct" class="pct-badge">(-0%)</span>
+          <div class="total-col">
+            <div class="water-total-label">AGUA AHORRADA</div>
+            <div class="water-total-value">
+              <span id="totalSavedLiters">0 L</span> 
+              <span id="totalSavedPct" class="pct-badge">(-0%)</span>
+            </div>
+          </div>
+          <div class="total-col">
+            <div class="water-total-label" style="color: #ffcc00;">QUÍM. AHORRADO</div>
+            <div class="water-total-value">
+              <span id="totalSavedQuim">0 L</span> 
+              <span id="totalSavedQuimPct" class="pct-badge quim-badge">(-0%)</span>
+            </div>
           </div>
         </div>
       </div>
 
       <div class="stages-bar">
         <div class="stage" id="s0">RECEPCIÓN</div><div class="stage-arrow">›</div>
-        <div class="stage" id="s1">TRITURADO</div><div class="stage-arrow">›</div>
-        <div class="stage" id="s2">LAVADO CLARITY</div><div class="stage-arrow">›</div>
-        <div class="stage" id="s3">ENJUAGUE</div><div class="stage-arrow">›</div>
-        <div class="stage" id="s4">SECADO</div><div class="stage-arrow">›</div>
-        <div class="stage" id="s5">SALIDA</div>
+        <div class="stage" id="s1">PRELAVADO CLARITY</div><div class="stage-arrow">›</div>
+        <div class="stage" id="s2">TRITURADO</div><div class="stage-arrow">›</div>
+        <div class="stage" id="s3">LAVADO CLARITY</div><div class="stage-arrow">›</div>
+        <div class="stage" id="s4">ENJUAGUE</div><div class="stage-arrow">›</div>
+        <div class="stage" id="s5">SECADO</div><div class="stage-arrow">›</div>
+        <div class="stage" id="s6">SALIDA</div>
       </div>
 
       <div class="alert-banner" id="alertBanner">¡NIVEL DE BIOCARGA CRÍTICO! DOSIFICANDO...</div>
