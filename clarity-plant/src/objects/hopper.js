@@ -8,7 +8,7 @@ import { scene } from '../scene.js'
 
 export function createHopper() {
   const group = new THREE.Group()
-  group.position.set(-10.5, 0, 0)
+  group.position.set(-20.5, 0, 0)
 
   // Main body
   const body = new THREE.Mesh(

@@ -2,73 +2,80 @@ import * as THREE from 'three'
 import { scene } from '../scene.js'
 
 /**
- * dryer.js
- * Responsabilidad: Tanque de enjuague (Estación 3) y secadora (Estación 4).
+ * dryer.js -> REFACTORIZADO A ZONA FINAL
+ * Responsabilidad: Tanque de enjuague (x=16) y Estación de Súper Sacos (x=22).
  */
 
 export function createRinseTank() {
   const group = new THREE.Group()
-  group.position.set(5.5, 0, 0)
+  group.position.set(16, 0, 0) // Posición exacta tras el tanque Clarity
 
+  // Tanque de Enjuague (Más industrial y robusto)
   const body = new THREE.Mesh(
-    new THREE.BoxGeometry(2.2, 3.5, 2.2),
-    new THREE.MeshStandardMaterial({
-      color: 0x082030, metalness: 0.7, roughness: 0.3,
-      transparent: true, opacity: 0.9
-    })
+    new THREE.BoxGeometry(2.5, 2.5, 2.5),
+    new THREE.MeshStandardMaterial({ color: 0x3a4a55, metalness: 0.7, roughness: 0.3 })
   )
-  body.position.y = 0.75
+  body.position.y = 1.25
   group.add(body)
 
-  const water = new THREE.Mesh(
-    new THREE.BoxGeometry(2.0, 3.0, 2.0),
-    new THREE.MeshStandardMaterial({
-      color: 0x00ccff, transparent: true, opacity: 0.5, roughness: 0.1
-    })
+  // Borde superior
+  const rim = new THREE.Mesh(
+    new THREE.BoxGeometry(2.7, 0.15, 2.7),
+    new THREE.MeshStandardMaterial({ color: 0x223344, metalness: 0.8 })
   )
-  water.position.y = 0.75
+  rim.position.y = 2.5
+  group.add(rim)
+
+  // Agua limpia
+  const water = new THREE.Mesh(
+    new THREE.BoxGeometry(2.3, 2.3, 2.3),
+    new THREE.MeshStandardMaterial({ color: 0x00aacc, transparent: true, opacity: 0.6, roughness: 0.1 })
+  )
+  water.position.y = 1.3
   group.add(water)
 
-  // Spray nozzles
-  for (const x of [-0.7, 0.7]) {
-    const nozzle = new THREE.Mesh(
-      new THREE.BoxGeometry(0.15, 0.15, 0.15),
-      new THREE.MeshStandardMaterial({ color: 0x00ccff, metalness: 0.9 })
-    )
-    nozzle.position.set(x, 2.8, 0.5)
-    group.add(nozzle)
-  }
-
-  const light = new THREE.PointLight(0x00ccff, 2, 5)
-  light.position.set(0, 3.5, 0)
+  const light = new THREE.PointLight(0x00ccff, 2.5, 6)
+  light.position.set(0, 3.0, 0)
   group.add(light)
 
   scene.add(group)
   return group
 }
 
-export function createDryer() {
+export function createCollectionZone() {
   const group = new THREE.Group()
-  group.position.set(10.5, 0, 0)
+  group.position.set(22, 0, 0) // Posición final
 
-  const body = new THREE.Mesh(
-    new THREE.CylinderGeometry(1.2, 1.2, 3.5, 16),
-    new THREE.MeshStandardMaterial({ color: 0x201505, metalness: 0.8, roughness: 0.2 })
+  // Estructura metálica para colgar el saco
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.8 })
+  for(const x of [-0.9, 0.9]) {
+    for(const z of [-0.9, 0.9]) {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 3.5), frameMat)
+      post.position.set(x, 1.75, z)
+      group.add(post)
+    }
+    // Barras superiores
+    const barX = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.05, 0.05), frameMat)
+    barX.position.set(0, 3.5, x)
+    group.add(barX)
+    const barZ = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 1.9), frameMat)
+    barZ.position.set(x, 3.5, 0)
+    group.add(barZ)
+  }
+
+  // Súper Saco (Jumbo Bag) translúcido
+  const sackMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.9, transparent: true, opacity: 0.85 })
+  const sack = new THREE.Mesh(new THREE.BoxGeometry(1.6, 2.0, 1.6), sackMat)
+  sack.position.y = 1.2
+  group.add(sack)
+
+  // Relleno de hojuelas visibles dentro del saco
+  const fill = new THREE.Mesh(
+    new THREE.BoxGeometry(1.5, 1.0, 1.5),
+    new THREE.MeshStandardMaterial({ color: 0x88ccff, roughness: 0.7 })
   )
-  body.position.y = 0.75
-  group.add(body)
-
-  const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(1.25, 0.08, 8, 16),
-    new THREE.MeshStandardMaterial({ color: 0xffaa00, metalness: 0.9 })
-  )
-  ring.position.y = 0.75
-  ring.rotation.x = Math.PI / 2
-  group.add(ring)
-
-  const light = new THREE.PointLight(0xffaa00, 2, 5)
-  light.position.set(0, 3, 0)
-  group.add(light)
+  fill.position.y = 0.7
+  group.add(fill)
 
   scene.add(group)
   return group
