@@ -1,110 +1,146 @@
 <!DOCTYPE html>
 <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Clarity - Planta de Reciclaje 3D</title>
-    <link rel="stylesheet" href="./style.css">
-  </head>
-  <body>
-    <canvas id="three-canvas"></canvas>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CLARITY — Lavavajillas Industrial</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍽️</text></svg>">
+</head>
+<body>
+  <canvas id="three-canvas"></canvas>
 
-    <div class="noise"></div>
+  <div id="hud">
+    <div class="corner corner-tl"></div>
+    <div class="corner corner-tr"></div>
+    <div class="corner corner-bl"></div>
+    <div class="corner corner-br"></div>
 
-    <div id="hud">
-      <div class="corner corner-tl"></div>
-      <div class="corner corner-tr"></div>
-      <div class="corner corner-bl"></div>
-      <div class="corner corner-br"></div>
-
-      <div class="title-block">
-        <h1>CLARITY</h1>
-        <p>PROCESADO PET / SISTEMA DE LAVADO BIOLÓGICO</p>
-        <div class="scan-line"></div>
-      </div>
-
-      <div class="panel-right">
-        <div class="metric-card">
-          <div class="metric-label">BIOCARGA (UFC/mL)</div>
-          <div class="metric-value" id="bioVal">100</div>
-          <div class="metric-bar"><div class="metric-fill" id="bioFill" style="width: 0%"></div></div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-label">PUREZA DEL LOTE</div>
-          <div class="metric-value" id="pureza">99.9%</div>
-          <div class="metric-bar"><div class="metric-fill" id="purezaFill" style="width: 100%"></div></div>
-        </div>
-        <div class="metric-card" style="display: flex; gap: 20px;">
-          <div>
-            <div class="metric-label">LOTES</div>
-            <div class="metric-value" id="lotesVal">0</div>
-          </div>
-          <div>
-            <div class="metric-label">TIEMPO (H)</div>
-            <div class="metric-value" id="tiempoVal">0.0</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="water-panel">
-        <div class="water-title">MÉTRICAS DE CONSUMO</div>
-        <div class="water-subtitle">Comparativa: Ciego vs Clarity</div>
-        
-        <div class="metric-section-title" style="color: #00f5ff;">AGUA (LITROS)</div>
-        <div class="water-row">
-          <div class="water-label"><div class="dot dot-standard"></div> Ciego</div>
-          <div class="water-bar-track"><div class="water-bar-fill standard-fill" style="width: 100%"></div></div>
-          <div class="water-number" id="aguaCiego">0 L</div>
-        </div>
-        <div class="water-row">
-          <div class="water-label"><div class="dot dot-clarity"></div> Clarity</div>
-          <div class="water-bar-track"><div class="water-bar-fill clarity-fill" id="aguaClarityBar" style="width: 0%"></div></div>
-          <div class="water-number" style="color: #00f5ff;" id="aguaClarity">0 L</div>
-        </div>
-
-        <div class="metric-section-title" style="color: #ffcc00;">QUÍMICOS (LITROS)</div>
-        <div class="water-row">
-          <div class="water-label"><div class="dot" style="background:#ffaa00; box-shadow:0 0 6px #ffaa0088;"></div> Ciego</div>
-          <div class="water-bar-track"><div class="water-bar-fill" style="background: linear-gradient(90deg, #aa6600, #ffaa00); width: 100%"></div></div>
-          <div class="water-number" style="color: #ffaa00;" id="quimCiego">0 L</div>
-        </div>
-        <div class="water-row">
-          <div class="water-label"><div class="dot" style="background:#00ff88; box-shadow:0 0 6px #00ff8888;"></div> Clarity</div>
-          <div class="water-bar-track"><div class="water-bar-fill" id="quimClarityBar" style="background: linear-gradient(90deg, #00aa55, #00ff88); width: 0%"></div></div>
-          <div class="water-number" style="color: #00ff88;" id="quimClarity">0 L</div>
-        </div>
-
-        <div class="water-total">
-          <div class="total-col">
-            <div class="water-total-label">AGUA AHORRADA</div>
-            <div class="water-total-value">
-              <span id="totalSavedLiters">0 L</span> 
-              <span id="totalSavedPct" class="pct-badge">(-0%)</span>
-            </div>
-          </div>
-          <div class="total-col">
-            <div class="water-total-label" style="color: #ffcc00;">QUÍM. AHORRADO</div>
-            <div class="water-total-value">
-              <span id="totalSavedQuim">0 L</span> 
-              <span id="totalSavedQuimPct" class="pct-badge quim-badge">(-0%)</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="stages-bar">
-        <div class="stage" id="s0">RECEPCIÓN</div><div class="stage-arrow">›</div>
-        <div class="stage" id="s1">PRELAVADO CLARITY</div><div class="stage-arrow">›</div>
-        <div class="stage" id="s2">TRITURADO</div><div class="stage-arrow">›</div>
-        <div class="stage" id="s3">LAVADO CLARITY</div><div class="stage-arrow">›</div>
-        <div class="stage" id="s4">ENJUAGUE</div><div class="stage-arrow">›</div>
-        <div class="stage" id="s5">SECADO</div><div class="stage-arrow">›</div>
-        <div class="stage" id="s6">SALIDA</div>
-      </div>
-
-      <div class="alert-banner" id="alertBanner">¡NIVEL DE BIOCARGA CRÍTICO! DOSIFICANDO...</div>
+    <!-- Título -->
+    <div class="title-block">
+      <h1>CLARITY</h1>
+      <p>LAVAVAJILLAS INDUSTRIAL · CONTROL BIOLÓGICO EN TIEMPO REAL</p>
+      <div class="scan-line"></div>
     </div>
 
-    <script type="module" src="src/main.js"></script>
-  </body>
+    <!-- Métricas derecha -->
+    <div class="panel-right">
+      <div class="metric-card">
+        <div class="metric-label">Biocarga (UFC/mL)</div>
+        <div class="metric-value" id="bioVal">150</div>
+        <div class="metric-bar">
+          <div class="metric-fill" id="bioFill" style="width:0%"></div>
+        </div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Higiene del baño</div>
+        <div class="metric-value" id="pureza" style="color:#00ff88">99.9%</div>
+        <div class="metric-bar">
+          <div class="metric-fill" id="purezaFill" style="width:99%"></div>
+        </div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-grid">
+          <div>
+            <div class="metric-label">Ciclos</div>
+            <div class="metric-value" style="font-size:19px" id="lotesVal">0</div>
+          </div>
+          <div>
+            <div class="metric-label">Horas sim.</div>
+            <div class="metric-value" style="font-size:19px" id="tiempoVal">0.0</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel consumo izquierda -->
+    <div class="water-panel">
+      <div class="panel-title">CONSUMO DE AGUA</div>
+      <div class="panel-subtitle">Estándar (calendario fijo) vs Clarity (sensor)</div>
+
+      <!-- Barras de agua acumulada -->
+      <div class="water-row">
+        <div class="w-label"><span class="dot dot-std"></span>Estándar</div>
+        <div class="bar-track"><div class="bar-fill fill-std" style="width:100%"></div></div>
+        <div class="w-num num-std" id="aguaCiego">0 L</div>
+      </div>
+      <div class="water-row">
+        <div class="w-label"><span class="dot dot-cly"></span>Clarity</div>
+        <div class="bar-track"><div class="bar-fill fill-cly" id="aguaClarityBar" style="width:0%"></div></div>
+        <div class="w-num num-cly" id="aguaClarity">0 L</div>
+      </div>
+
+      <!-- Tasa L/h -->
+      <div class="lph-row">
+        <div class="lph-item">
+          <span class="lph-label">L/h estándar</span>
+          <span class="lph-val std" id="lphCiego">— L/h</span>
+        </div>
+        <div class="lph-sep">VS</div>
+        <div class="lph-item">
+          <span class="lph-label">L/h Clarity</span>
+          <span class="lph-val cly" id="lphClarity">— L/h</span>
+        </div>
+      </div>
+
+      <!-- Contadores purgas / dosis -->
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="stat-lbl">Purgas baño</div>
+          <div class="stat-cmp">
+            <span class="s-bad" id="purgasCiego">0</span>
+            <span class="s-vs">vs</span>
+            <span class="s-good" id="purgasClarity">0</span>
+          </div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-lbl">Dosis quím.</div>
+          <div class="stat-cmp">
+            <span class="s-bad" id="dosisCiego">0</span>
+            <span class="s-vs">vs</span>
+            <span class="s-good" id="dosisClarity">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Totales de ahorro -->
+      <div class="savings-row">
+        <div class="saving-block">
+          <div class="saving-lbl">Agua ahorrada</div>
+          <div class="saving-val water-col" id="totalSavedLiters">0 L</div>
+          <div class="pct-badge water-badge" id="totalSavedPct">−0.0%</div>
+        </div>
+        <div class="saving-divider"></div>
+        <div class="saving-block">
+          <div class="saving-lbl">Químicos</div>
+          <div class="saving-val chem-col">ahorro</div>
+          <div class="pct-badge chem-badge" id="quimSaved">−0.0%</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Barra de etapas -->
+    <div class="stages-bar">
+      <div class="stage" id="s0">Carga</div>
+      <div class="stage-arr">›</div>
+      <div class="stage" id="s1">Pre-remojo</div>
+      <div class="stage-arr">›</div>
+      <div class="stage" id="s2">Túnel lavado</div>
+      <div class="stage-arr">›</div>
+      <div class="stage" id="s3">Clarity</div>
+      <div class="stage-arr">›</div>
+      <div class="stage" id="s4">Enjuague</div>
+      <div class="stage-arr">›</div>
+      <div class="stage" id="s5">Secado</div>
+    </div>
+
+    <!-- Alerta biocarga crítica -->
+    <div class="alert-banner" id="alertBanner">
+      ⚠ BIOCARGA CRÍTICA — CLARITY EJECUTANDO PURGA
+    </div>
+  </div>
+
+  <div class="noise"></div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
 </html>

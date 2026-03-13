@@ -3,7 +3,7 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-  background: #020810;
+  background: #05080d;
   font-family: 'Share Tech Mono', monospace;
   overflow: hidden;
   color: #00f5ff;
@@ -12,12 +12,10 @@ body {
 canvas {
   position: fixed;
   top: 0; left: 0;
-  width: 100vw;
-  height: 100vh;
+  width: 100vw; height: 100vh;
   display: block;
 }
 
-/* ── HUD ──────────────────────────────────────── */
 #hud {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -25,17 +23,9 @@ canvas {
   z-index: 10;
 }
 
-/* Corner brackets */
-.corner {
-  position: absolute;
-  width: 50px;
-  height: 50px;
-}
-.corner::before, .corner::after {
-  content: '';
-  position: absolute;
-  background: #00f5ff;
-}
+/* ── Esquinas decorativas ─────────────────────────── */
+.corner { position: absolute; width: 44px; height: 44px; }
+.corner::before, .corner::after { content: ''; position: absolute; background: #00f5ff; }
 .corner::before { width: 100%; height: 2px; top: 0; left: 0; }
 .corner::after  { width: 2px; height: 100%; top: 0; left: 0; }
 .corner-tl { top: 10px; left: 10px; }
@@ -43,341 +33,255 @@ canvas {
 .corner-bl { bottom: 10px; left: 10px; transform: scaleY(-1); }
 .corner-br { bottom: 10px; right: 10px; transform: scale(-1); }
 
-/* Title */
-.title-block {
-  position: absolute;
-  top: 24px;
-  left: 30px;
-}
+/* ── Título ───────────────────────────────────────── */
+.title-block { position: absolute; top: 22px; left: 28px; }
 .title-block h1 {
   font-family: 'Orbitron', monospace;
-  font-weight: 900;
-  font-size: 28px;
-  letter-spacing: 6px;
-  color: #00f5ff;
-  text-shadow: 0 0 20px #00f5ff, 0 0 40px #00f5ff55;
+  font-weight: 900; font-size: 24px;
+  letter-spacing: 6px; color: #00f5ff;
+  text-shadow: 0 0 18px #00f5ff, 0 0 36px #00f5ff44;
 }
 .title-block p {
-  font-size: 11px;
-  letter-spacing: 3px;
-  color: #006688;
-  margin-top: 4px;
+  font-size: 9px; letter-spacing: 3px;
+  color: #006688; margin-top: 3px;
 }
 .scan-line {
-  width: 100%;
-  height: 1px;
+  width: 100%; height: 1px;
   background: linear-gradient(90deg, transparent, #00f5ff44, transparent);
-  margin-top: 8px;
+  margin-top: 7px;
   animation: scan 3s ease-in-out infinite;
 }
-@keyframes scan {
-  0%, 100% { opacity: 0.3; }
-  50%       { opacity: 1; }
-}
+@keyframes scan { 0%,100% { opacity: 0.3; } 50% { opacity: 1; } }
 
-/* Metric panel */
-.panel-right {
-  position: absolute;
-  top: 24px;
-  right: 24px;
-  width: 230px;
-}
+/* ── Panel métricas (derecha) ─────────────────────── */
+.panel-right { position: absolute; top: 22px; right: 22px; width: 220px; }
+
 .metric-card {
-  background: linear-gradient(135deg, rgba(0,20,30,0.9), rgba(0,40,60,0.7));
-  border: 1px solid #00f5ff33;
+  background: linear-gradient(135deg, rgba(0,18,28,0.93), rgba(0,38,58,0.78));
+  border: 1px solid #00f5ff2a;
   border-left: 3px solid #00f5ff;
-  padding: 12px 14px;
-  margin-bottom: 8px;
-  backdrop-filter: blur(10px);
+  padding: 11px 13px;
+  margin-bottom: 7px;
+  backdrop-filter: blur(12px);
 }
 .metric-label {
-  font-size: 9px;
-  letter-spacing: 3px;
-  color: #005566;
-  text-transform: uppercase;
+  font-size: 8px; letter-spacing: 3px;
+  color: #005566; text-transform: uppercase;
 }
 .metric-value {
   font-family: 'Orbitron', monospace;
-  font-size: 22px;
-  font-weight: 700;
-  margin-top: 2px;
-  transition: color 0.5s;
+  font-size: 21px; font-weight: 700;
+  margin-top: 2px; transition: color 0.5s;
 }
 .metric-bar {
-  height: 3px;
-  background: #001520;
-  margin-top: 8px;
-  border-radius: 2px;
-  overflow: hidden;
+  height: 3px; background: #001520;
+  margin-top: 7px; border-radius: 2px; overflow: hidden;
 }
 .metric-fill {
-  height: 100%;
-  border-radius: 2px;
-  background: #00f5ff;
-  width: 0%;
+  height: 100%; border-radius: 2px;
+  background: #00f5ff; width: 0%;
   transition: width 0.5s, background 0.5s;
 }
+.metric-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+}
 
-/* Stages bar */
+/* ── Panel consumo (izquierda) ────────────────────── */
+.water-panel {
+  position: absolute;
+  bottom: 72px; left: 26px;
+  width: 370px;
+  background: linear-gradient(135deg, rgba(0,13,22,0.96), rgba(0,28,44,0.90));
+  border: 1px solid #00f5ff33;
+  border-left: 4px solid #00f5ff;
+  padding: 18px 22px 16px;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 8px 28px rgba(0,0,0,0.55), inset 0 0 18px rgba(0,245,255,0.03);
+}
+.panel-title {
+  font-family: 'Orbitron', monospace;
+  font-size: 13px; font-weight: 900;
+  letter-spacing: 5px; color: #00f5ff;
+  text-shadow: 0 0 12px #00f5ff77;
+}
+.panel-subtitle {
+  font-size: 8px; letter-spacing: 3px;
+  color: #007799; margin-top: 3px; margin-bottom: 14px;
+  text-transform: uppercase;
+}
+
+/* Filas de agua */
+.water-row {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
+}
+.w-label {
+  font-size: 9px; font-weight: bold; letter-spacing: 2px;
+  color: #aaccdd; width: 76px; display: flex;
+  align-items: center; gap: 7px; flex-shrink: 0;
+  text-transform: uppercase;
+}
+.dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.dot-std { background: #ff4400; box-shadow: 0 0 6px #ff4400aa; }
+.dot-cly { background: #00f5ff; box-shadow: 0 0 6px #00f5ffaa; }
+
+.bar-track {
+  flex: 1; height: 8px;
+  background: rgba(0,8,14,0.85);
+  border-radius: 4px; overflow: hidden;
+  border: 1px solid #003a4a;
+}
+.bar-fill { height: 100%; border-radius: 3px; transition: width 0.35s linear; }
+.fill-std { background: linear-gradient(90deg, #992200, #ff4400); width: 100%; }
+.fill-cly { background: linear-gradient(90deg, #005588, #00f5ff); box-shadow: 0 0 6px #00f5ff44; }
+
+.w-num {
+  font-family: 'Orbitron', monospace;
+  font-size: 10px; font-weight: 700;
+  width: 78px; text-align: right; flex-shrink: 0;
+}
+.num-std { color: #ff4400; }
+.num-cly { color: #00f5ff; }
+
+/* L/h fila */
+.lph-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin: 10px 0 12px;
+  padding: 7px 10px;
+  background: rgba(0,0,0,0.28);
+  border: 1px solid #002233;
+  border-radius: 4px;
+}
+.lph-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.lph-label { font-size: 7px; letter-spacing: 2px; color: #007799; text-transform: uppercase; }
+.lph-val { font-family: 'Orbitron', monospace; font-size: 12px; font-weight: 700; }
+.lph-val.std { color: #ff6633; }
+.lph-val.cly { color: #00ddff; }
+.lph-sep { font-size: 10px; color: #334455; font-weight: bold; }
+
+/* Grid purgas/dosis */
+.stats-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  margin-bottom: 12px;
+  padding: 9px 10px;
+  background: rgba(0,0,0,0.28);
+  border-radius: 4px; border: 1px solid #002233;
+}
+.stat-box { display: flex; flex-direction: column; align-items: center; }
+.stat-lbl {
+  font-size: 7px; letter-spacing: 2px;
+  color: #006688; text-transform: uppercase; margin-bottom: 3px;
+}
+.stat-cmp { font-family: 'Orbitron', monospace; font-size: 12px; font-weight: bold; }
+.s-bad  { color: #ff4400; }
+.s-good { color: #00f5ff; text-shadow: 0 0 6px #00f5ff55; }
+.s-vs   { color: #445566; font-size: 9px; margin: 0 2px; }
+
+/* Bloque totales de ahorro */
+.savings-row {
+  display: flex; gap: 10px;
+  padding-top: 11px;
+  border-top: 1px dashed #004455;
+}
+.saving-block {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+}
+.saving-lbl {
+  font-size: 7px; letter-spacing: 2px;
+  color: #007799; text-transform: uppercase;
+}
+.saving-val {
+  font-family: 'Orbitron', monospace;
+  font-size: 22px; font-weight: 900;
+}
+.saving-val.water-col { color: #00ffaa; text-shadow: 0 0 16px #00ffaa77; }
+.saving-val.chem-col  { color: #00ffcc; text-shadow: 0 0 16px #00ffcc66; }
+.pct-badge {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px; font-weight: bold;
+  padding: 2px 9px; border-radius: 14px;
+}
+.pct-badge.water-badge {
+  color: #00ffaa; border: 1px solid #00ffaa55;
+  background: rgba(0,255,170,0.1);
+}
+.pct-badge.chem-badge {
+  color: #00ffcc; border: 1px solid #00ffcc44;
+  background: rgba(0,255,204,0.08);
+}
+.saving-divider {
+  width: 1px; background: #003344; align-self: stretch;
+}
+
+/* ── Barra de etapas ──────────────────────────────── */
 .stages-bar {
   position: absolute;
-  bottom: 24px;
-  left: 50%;
+  bottom: 20px; left: 50%;
   transform: translateX(-50%);
-  display: flex;
-  gap: 10px;
-  align-items: center;
+  display: flex; gap: 3px; align-items: center;
 }
 .stage {
-  padding: 7px 16px;
-  border: 1px solid #004455;
-  font-size: 20px;
-  letter-spacing: 2px;
-  color: #003344;
-  background: rgba(0,10,20,0.8);
-  transition: all 0.7s;
-  position: relative;
+  padding: 6px 11px;
+  border: 1px solid #003344;
+  font-size: 7px; letter-spacing: 2px;
+  color: #002233; background: rgba(0,8,18,0.85);
+  transition: all 0.5s; position: relative;
+  text-transform: uppercase;
 }
 .stage.active {
-  border-color: #00f5ff;
-  color: #00f5ff;
+  border-color: #00f5ff; color: #00f5ff;
   background: rgba(0,245,255,0.05);
-  box-shadow: 0 0 12px #00f5ff33;
+  box-shadow: 0 0 10px #00f5ff22;
 }
 .stage.active::before {
   content: '';
-  position: absolute;
-  top: -5px; left: 50%;
+  position: absolute; top: -4px; left: 50%;
   transform: translateX(-50%);
-  width: 6px; height: 6px;
-  background: #00f5ff;
-  border-radius: 50%;
-  box-shadow: 0 0 8px #00f5ff;
+  width: 5px; height: 5px;
+  background: #00f5ff; border-radius: 50%;
+  box-shadow: 0 0 7px #00f5ff;
   animation: dot-pulse 1s ease-in-out infinite;
 }
 @keyframes dot-pulse {
-  0%, 100% { opacity: 1; transform: translateX(-50%) scale(1); }
-  50%       { opacity: 0.4; transform: translateX(-50%) scale(1.6); }
+  0%,100% { opacity: 1; transform: translateX(-50%) scale(1); }
+  50%      { opacity: 0.4; transform: translateX(-50%) scale(1.6); }
 }
-.stage-arrow {
-  color: #003344;
-  font-size: 14px;
-}
+.stage-arr { color: #002233; font-size: 12px; }
 
-/* Alert banner */
+/* ── Alerta biocarga crítica ──────────────────────── */
 .alert-banner {
-  position: absolute;
-  top: 50%;
-  left: 50%;
+  position: absolute; top: 50%; left: 50%;
   transform: translate(-50%, -50%);
-  padding: 12px 28px;
+  padding: 11px 26px;
   font-family: 'Orbitron', monospace;
-  font-size: 13px;
-  letter-spacing: 4px;
-  border: 2px solid #ff3300;
-  color: #ff3300;
-  background: rgba(30,0,0,0.92);
-  box-shadow: 0 0 30px #ff330055;
-  opacity: 0;
-  transition: opacity 0.3s;
-  pointer-events: none;
+  font-size: 11px; letter-spacing: 4px;
+  border: 2px solid #ff4400; color: #ff4400;
+  background: rgba(28,3,0,0.95);
+  box-shadow: 0 0 28px #ff440044;
+  opacity: 0; transition: opacity 0.3s;
+  pointer-events: none; white-space: nowrap;
 }
 .alert-banner.visible {
   opacity: 1;
   animation: alert-flash 1s ease-in-out infinite;
 }
 @keyframes alert-flash {
-  0%, 100% { box-shadow: 0 0 20px #ff330055; }
-  50%       { box-shadow: 0 0 50px #ff3300aa; }
+  0%,100% { box-shadow: 0 0 18px #ff440044; }
+  50%      { box-shadow: 0 0 48px #ff4400aa; }
 }
 
-/* Noise overlay */
+/* ── Ruido de pantalla ────────────────────────────── */
 .noise {
-  position: fixed;
-  top: 0; left: 0;
+  position: fixed; top: 0; left: 0;
   width: 100%; height: 100%;
-  opacity: 0.03;
-  pointer-events: none;
-  z-index: 5;
+  opacity: 0.022; pointer-events: none; z-index: 5;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-size: 200px;
   animation: noise-anim 0.5s steps(2) infinite;
 }
 @keyframes noise-anim {
-  0%   { transform: translate(0, 0); }
-  25%  { transform: translate(-2px, 1px); }
-  50%  { transform: translate(1px, -2px); }
-  75%  { transform: translate(2px, 0); }
-  100% { transform: translate(0, 2px); }
-}
-
-/* ── Water Savings Panel (A PRUEBA DE NÚMEROS GIGANTES) ── */
-.water-panel {
-  position: absolute;
-  bottom: 80px;
-  left: 30px;
-  width: 500px; /* Suficientemente ancho para millones de litros */
-  background: linear-gradient(135deg, rgba(0,15,25,0.95), rgba(0,30,45,0.85));
-  border: 1px solid #00f5ff44;
-  border-left: 4px solid #00f5ff;
-  padding: 20px 24px;
-  backdrop-filter: blur(15px);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 0 20px rgba(0,245,255,0.05);
-}
-
-.water-title {
-  font-family: 'Orbitron', monospace;
-  font-size: 16px; 
-  font-weight: 900;
-  letter-spacing: 5px;
-  color: #00f5ff;
-  text-shadow: 0 0 15px #00f5ff88;
-}
-
-.water-subtitle {
-  font-size: 10px;
-  letter-spacing: 3px;
-  color: #0088aa;
-  margin-bottom: 15px; 
-  margin-top: 4px;
-  text-transform: uppercase;
-}
-
-.metric-section-title {
-  font-size: 11px;
-  font-weight: bold;
-  letter-spacing: 2px;
-  margin-top: 15px;
-  margin-bottom: 8px;
-  text-transform: uppercase;
-}
-
-.water-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.water-label {
-  font-size: 11px;
-  font-weight: bold;
-  letter-spacing: 2px;
-  color: #cceeff;
-  width: 85px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-  text-transform: uppercase;
-}
-
-.dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.dot-standard { background: #ff4400; box-shadow: 0 0 8px #ff4400aa; }
-.dot-clarity  { background: #00f5ff; box-shadow: 0 0 8px #00f5ffaa; }
-
-.water-bar-track {
-  flex: 1;
-  height: 10px; 
-  background: rgba(0,10,15,0.8);
-  border-radius: 5px;
-  overflow: hidden;
-  border: 1px solid #004455;
-}
-
-.water-bar-fill {
-  height: 100%;
-  border-radius: 4px;
-  transition: width 0.3s linear;
-}
-
-.standard-fill { background: linear-gradient(90deg, #aa2200, #ff4400); }
-.clarity-fill  { background: linear-gradient(90deg, #0066aa, #00f5ff); box-shadow: 0 0 10px #00f5ff66;}
-
-.water-number {
-  font-family: 'Orbitron', monospace;
-  font-size: 13px; /* Letra un pelo más grande */
-  font-weight: 700;
-  width: 120px; /* Ancho reservado para que entren los millones con comas */
-  text-align: right;
-  flex-shrink: 0;
-  white-space: nowrap; /* ESTO EVITA QUE LA "L" CAIGA A LA SIGUIENTE LÍNEA */
-}
-
-/* ── El Gran Total ── */
-.water-total {
-  display: flex;
-  justify-content: space-between; 
-  align-items: center;
-  margin-top: 15px;
-  padding-top: 15px;
-  border-top: 1px dashed #005566;
-}
-
-.total-col {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-
-.total-col:last-child {
-  border-left: 1px dashed #005566;
-}
-
-.water-total-label { 
-  font-size: 11px; 
-  font-weight: bold;
-  letter-spacing: 3px; 
-  color: #00ccff; 
-  margin-bottom: 8px; 
-  white-space: nowrap;
-}
-
-.water-total-value {
-  display: flex;
-  align-items: baseline; /* Alinea el texto gigante con el botón de porcentaje */
-  justify-content: center; 
-  gap: 12px;
-  white-space: nowrap; /* EVITA EL SALTO DE LÍNEA EN EL TOTAL */
-}
-
-#totalSavedLiters, #totalSavedQuim {
-  font-family: 'Orbitron', monospace;
-  font-size: 26px; /* Ajuste perfecto para que no desborde */
-  font-weight: 900;
-  line-height: 1;
-}
-
-#totalSavedLiters {
-  color: #00ffaa;
-  text-shadow: 0 0 15px #00ffaa88;
-}
-
-#totalSavedQuim {
-  color: #ffcc00;
-  text-shadow: 0 0 15px #ffcc0088;
-}
-
-.pct-badge {
-  padding: 3px 8px;
-  border-radius: 12px;
-  font-family: 'Share Tech Mono', monospace;
-  font-size: 13px;
-  font-weight: bold;
-}
-
-#totalSavedPct {
-  background: rgba(0, 255, 170, 0.15);
-  border: 1px solid #00ffaa;
-  color: #00ffaa;
-  box-shadow: 0 0 8px #00ffaa44;
-}
-
-.quim-badge {
-  background: rgba(255, 204, 0, 0.15);
-  border: 1px solid #ffcc00;
-  color: #ffcc00;
-  box-shadow: 0 0 8px #ffcc0044;
+  0%   { transform: translate(0,0); }
+  25%  { transform: translate(-2px,1px); }
+  50%  { transform: translate(1px,-2px); }
+  75%  { transform: translate(2px,0); }
+  100% { transform: translate(0,2px); }
 }

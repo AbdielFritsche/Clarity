@@ -2,226 +2,172 @@ import * as THREE from 'three'
 import { scene } from '../scene.js'
 
 /**
- * tank.js — Tanque de Lavado Caliente con Sensor Clarity — Estación 2
- *
- * Geometría EXPANDIDA:
- * - Tanque RECTANGULAR alargado hacia la izquierda para conectar con el molino.
- * - Doble sistema de agitadores (2 ejes, 4 niveles de paletas).
- * - Pared frontal semitransparente.
- * - Puente colgante ancho con el sensor Clarity centrado y DESPLAZADO HACIA ATRÁS.
- * - Partículas de separación por densidad expandidas.
- *
- * Exporta: { group, waterMesh, glowRing, tankLight, laserRay, impellerBlades }
+ * tank.js → TANQUE DE LAVADO CALIENTE + SENSOR CLARITY
+ * Tanque de lavado principal con agua a 60-85°C.
+ * El sensor Clarity mide biocarga (UFC/mL) en tiempo real
+ * para dosificación inteligente y ahorro de agua en hoteles/restaurantes.
  */
 export function createTank(posX = 14, posZ = 0) {
-  const group = new THREE.Group()
-  group.position.set(posX, 0, posZ) // Posición central de la máquina
+  const g = new THREE.Group()
+  g.position.set(posX, 0, posZ)
 
-  // ── Materiales ────────────────────────────────────────
-  const matSteel = new THREE.MeshStandardMaterial({ color: 0x2e4858, metalness: 0.88, roughness: 0.18 })
-  const matShiny = new THREE.MeshStandardMaterial({ color: 0x4a7080, metalness: 0.95, roughness: 0.08 })
-  const matCoil  = new THREE.MeshStandardMaterial({ color: 0xcc4400, metalness: 0.9,  roughness: 0.12 })
+  const ssM  = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.88, roughness: 0.14 })
+  const sMat = new THREE.MeshStandardMaterial({ color: 0x778899, metalness: 0.92, roughness: 0.08 })
+  const coilM = new THREE.MeshStandardMaterial({ color: 0xcc4400, metalness: 0.9, roughness: 0.12 })
 
-  // ── Paredes del tanque (Expandido a la izquierda) ─────
-  // Centro desplazado a x = -1.0, Ancho total = 5.7m
-  const wallBack = new THREE.Mesh(new THREE.BoxGeometry(5.7, 3.5, 0.1), matSteel)
-  wallBack.position.set(-1.0, 1.85, -2.4)
-  wallBack.castShadow = true
-  group.add(wallBack)
+  // ── PAREDES DEL TANQUE ─────────────────────────────────
+  const wallBack = new THREE.Mesh(new THREE.BoxGeometry(5.5, 3.8, 0.1), ssM)
+  wallBack.position.set(-0.8, 1.9, -2.4); wallBack.castShadow = true; g.add(wallBack)
+  const wallL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 3.8, 4.8), ssM)
+  wallL.position.set(-3.55, 1.9, 0); g.add(wallL)
+  const wallR = new THREE.Mesh(new THREE.BoxGeometry(0.1, 3.8, 4.8), ssM)
+  wallR.position.set(1.95, 1.9, 0); g.add(wallR)
+  const wallFloor = new THREE.Mesh(new THREE.BoxGeometry(5.5, 0.1, 4.8), ssM)
+  wallFloor.position.set(-0.8, 0.06, 0); wallFloor.receiveShadow = true; g.add(wallFloor)
 
-  const wallLeft = new THREE.Mesh(new THREE.BoxGeometry(0.1, 3.5, 4.8), matSteel)
-  wallLeft.position.set(-3.85, 1.85, 0)
-  group.add(wallLeft)
+  // Pared frontal semitransparente
+  const wallFront = new THREE.Mesh(new THREE.BoxGeometry(5.5, 3.8, 0.08),
+    new THREE.MeshStandardMaterial({ color: 0x88aacc, metalness: 0.75, roughness: 0.08, transparent: true, opacity: 0.2 }))
+  wallFront.position.set(-0.8, 1.9, 2.45); g.add(wallFront)
 
-  const wallRight = new THREE.Mesh(new THREE.BoxGeometry(0.1, 3.5, 4.8), matSteel)
-  wallRight.position.set(1.85, 1.85, 0)
-  group.add(wallRight)
-
-  const wallFloor = new THREE.Mesh(new THREE.BoxGeometry(5.7, 0.1, 4.8), matSteel)
-  wallFloor.position.set(-1.0, 0.05, 0)
-  wallFloor.receiveShadow = true
-  group.add(wallFloor)
-
-  const wallFront = new THREE.Mesh(
-    new THREE.BoxGeometry(5.7, 3.5, 0.08),
-    new THREE.MeshStandardMaterial({ color: 0x5588aa, metalness: 0.75, roughness: 0.08, transparent: true, opacity: 0.22 })
-  )
-  wallFront.position.set(-1.0, 1.85, 2.45)
-  group.add(wallFront)
-
-  // ── Perfil L — borde superior ─────────────────────────
-  for (const [w, d, x, z] of [
-    [6.0, 0.14, -1.0, -2.4],
-    [6.0, 0.14, -1.0,  2.45],
-    [0.14, 5.0, -3.85,  0],
-    [0.14, 5.0,  1.85,  0],
-  ]) {
-    const rim = new THREE.Mesh(new THREE.BoxGeometry(w, 0.14, d), matShiny)
-    rim.position.set(x, 3.65, z)
-    group.add(rim)
+  // Bordes superiores
+  for (const [w, d, x, z] of [[5.8, 0.14, -0.8,-2.4],[5.8, 0.14, -0.8, 2.45],[0.14, 5.0, -3.55, 0],[0.14, 5.0, 1.95, 0]]) {
+    const rim = new THREE.Mesh(new THREE.BoxGeometry(w, 0.13, d), sMat)
+    rim.position.set(x, 3.88, z); g.add(rim)
   }
 
-  // ── Costillas de refuerzo ─────────────────────────────
-  for (const xi of [-3.4, -1.0, 1.4]) {
-    const rib = new THREE.Mesh(new THREE.BoxGeometry(0.07, 3.4, 0.09), new THREE.MeshStandardMaterial({ color: 0x1a2530, metalness: 0.9 }))
-    rib.position.set(xi, 1.85, -2.41)
-    group.add(rib)
+  // ── AGUA CALIENTE ─────────────────────────────────────
+  const waterMesh = new THREE.Mesh(new THREE.BoxGeometry(5.3, 3.5, 4.65),
+    new THREE.MeshStandardMaterial({ color: 0x1188cc, roughness: 0.06, transparent: true, opacity: 0.68 }))
+  waterMesh.position.set(-0.8, 1.85, 0); g.add(waterMesh)
+
+  // Burbujas de calor en la superficie
+  const foam = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 4.55),
+    new THREE.MeshStandardMaterial({ color: 0xbbddee, transparent: true, opacity: 0.22, roughness: 0.9 }))
+  foam.rotation.x = -Math.PI/2; foam.position.set(-0.8, 3.65, 0); g.add(foam)
+
+  // ── RESISTENCIAS CALEFACTORAS ─────────────────────────
+  for (const zi of [-1.5, -0.4, 0.6, 1.7]) {
+    const coil = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.048, 5.2, 10), coilM)
+    coil.rotation.z = Math.PI/2; coil.position.set(-0.8, 0.4, zi); g.add(coil)
   }
-  for (const zi of [-1.6, 0, 1.6]) {
-    const rib = new THREE.Mesh(new THREE.BoxGeometry(0.09, 3.4, 0.07), new THREE.MeshStandardMaterial({ color: 0x1a2530, metalness: 0.9 }))
-    rib.position.set(-3.86, 1.85, zi)
-    group.add(rib)
-    const rib2 = rib.clone(); rib2.position.x = 1.86; group.add(rib2)
-  }
 
-  // ── Volumen de agua ───────────────────────────────────
-  const waterMesh = new THREE.Mesh(
-    new THREE.BoxGeometry(5.5, 3.1, 4.72),
-    new THREE.MeshStandardMaterial({ color: 0x0066cc, roughness: 0.08, transparent: true, opacity: 0.65 })
-  )
-  waterMesh.position.set(-1.0, 1.6, 0)
-  group.add(waterMesh)
-
-  const foam = new THREE.Mesh(
-    new THREE.PlaneGeometry(5.4, 4.62),
-    new THREE.MeshStandardMaterial({ color: 0x99ccee, transparent: true, opacity: 0.20, roughness: 0.9 })
-  )
-  foam.rotation.x = -Math.PI / 2
-  foam.position.set(-1.0, 3.18, 0)
-  group.add(foam)
-
-  // ── Serpentines calefactores ──────────────────────────
-  for (const zi of [-1.6, -0.5, 0.5, 1.6]) {
-    const coil = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 5.5, 10), matCoil)
-    coil.rotation.z = Math.PI / 2
-    coil.position.set(-1.0, 0.45, zi)
-    group.add(coil)
-  }
-  const coilManifold = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 4.6, 8), matCoil)
-  coilManifold.position.set(-3.75, 0.55, 0)
-  group.add(coilManifold)
-
-  // ── Ejes agitadores (SISTEMA DOBLE) ───────────────────
-  const paddleMat = new THREE.MeshStandardMaterial({ color: 0x4a6070, metalness: 0.85 })
+  // ── AGITADORES DOBLES ─────────────────────────────────
+  const padMat = new THREE.MeshStandardMaterial({ color: 0x4a6070, metalness: 0.85 })
   const impellerBlades = []
-
-  for (const shaftX of [-2.2, 0.2]) {
-    const agShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 3.5, 10), new THREE.MeshStandardMaterial({ color: 0x667788, metalness: 0.92 }))
-    agShaft.position.set(shaftX, 1.85, 0); group.add(agShaft)
-
-    const bearing = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.18, 12), new THREE.MeshStandardMaterial({ color: 0x445566, metalness: 0.9 }))
-    bearing.position.set(shaftX, 3.71, 0); group.add(bearing)
-
-    const motorBox = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.42, 0.42), new THREE.MeshStandardMaterial({ color: 0x1a2530, metalness: 0.85 }))
-    motorBox.position.set(shaftX, 4.14, 0); group.add(motorBox)
-
-    for (const baseY of [1.1, 2.2]) {
+  for (const ax of [-2.0, 0.4]) {
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.048, 3.6, 10),
+      new THREE.MeshStandardMaterial({ color: 0x667788, metalness: 0.9 }))
+    shaft.position.set(ax, 1.9, 0); g.add(shaft)
+    const motor = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4),
+      new THREE.MeshStandardMaterial({ color: 0x1a2530, metalness: 0.85 }))
+    motor.position.set(ax, 3.95, 0); g.add(motor)
+    for (const by of [0.9, 2.2]) {
       for (let i = 0; i < 4; i++) {
-        const pivot = new THREE.Object3D()
-        pivot.position.set(shaftX, baseY, 0)
-        
-        const paddle = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.07, 0.20), paddleMat)
-        paddle.position.set(0.7, 0, 0); pivot.add(paddle)
-        
-        const gusset = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.20), paddleMat)
-        gusset.position.set(0.08, 0, 0); pivot.add(gusset)
-        
-        pivot.rotation.y = (i / 4) * Math.PI * 2
-        group.add(pivot)
-        impellerBlades.push(pivot)
+        const piv = new THREE.Object3D()
+        piv.position.set(ax, by, 0)
+        const blade = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.065, 0.18), padMat)
+        blade.position.set(0.65, 0, 0); piv.add(blade)
+        piv.rotation.y = (i/4)*Math.PI*2
+        g.add(piv); impellerBlades.push(piv)
       }
     }
   }
 
-  // ── SISTEMA SENSOR CLARITY (Puente Desplazado) ────────
-  const sensorBridgeMat = new THREE.MeshStandardMaterial({ color: 0x8899aa, metalness: 0.9 })
-  
-  // Desplazamos el puente 1.2 metros hacia atrás en Z para liberar el centro
-  const bridgeZ = -1.2; 
-  
-  const postL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.5, 0.1), sensorBridgeMat)
-  postL.position.set(-4.0, 3.1, bridgeZ); group.add(postL)
-  
-  const postR = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.5, 0.1), sensorBridgeMat)
-  postR.position.set(2.0, 3.1, bridgeZ); group.add(postR)
-  
-  const crossBeam = new THREE.Mesh(new THREE.BoxGeometry(6.1, 0.1, 0.1), sensorBridgeMat)
-  crossBeam.position.set(-1.0, 4.3, bridgeZ); group.add(crossBeam)
+  // ── SISTEMA SENSOR CLARITY ────────────────────────────
+  const bridgeMat = new THREE.MeshStandardMaterial({ color: 0x8899aa, metalness: 0.9 })
+  const bz = -1.0 // puente desplazado hacia atrás
 
-  const laserRays = []
+  // Postes y viga del puente
+  const pL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.4, 0.1), bridgeMat)
+  pL.position.set(-3.7, 3.1, bz); g.add(pL)
+  const pR = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.4, 0.1), bridgeMat)
+  pR.position.set(2.1, 3.1, bz); g.add(pR)
+  const beam = new THREE.Mesh(new THREE.BoxGeometry(5.9, 0.1, 0.1), bridgeMat)
+  beam.position.set(-0.8, 4.25, bz); g.add(beam)
+
   const glowRings = []
+  const laserRays = []
 
-  // Creamos 2 sensores sobre el puente desplazado
-  for (const sx of [-2.4, 0.4]) {
-    const probeBody = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.4, 12), new THREE.MeshStandardMaterial({ color: 0x1a2a3a, metalness: 0.8 }))
-    probeBody.position.set(sx, 4.1, bridgeZ); group.add(probeBody)
+  // Dos sensores sobre el puente
+  for (const sx of [-2.2, 0.6]) {
+    const probe = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.38, 12),
+      new THREE.MeshStandardMaterial({ color: 0x1a2a3a, metalness: 0.8 }))
+    probe.position.set(sx, 4.06, bz); g.add(probe)
 
-    const glowRing = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.03, 8, 24), new THREE.MeshBasicMaterial({ color: 0x00f5ff, transparent: true, opacity: 0.8 }))
-    glowRing.position.set(sx, 4.1, bridgeZ); glowRing.rotation.x = Math.PI / 2; group.add(glowRing)
-    glowRings.push(glowRing)
+    // Aro luminoso Clarity
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.028, 8, 24),
+      new THREE.MeshBasicMaterial({ color: 0x00f5ff, transparent: true, opacity: 0.85 }))
+    ring.position.set(sx, 4.06, bz); ring.rotation.x = Math.PI/2; g.add(ring); glowRings.push(ring)
 
-    const probeTip = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.1, 10), new THREE.MeshStandardMaterial({ color: 0x00ddff, metalness: 0.9, emissive: 0x0055ff }))
-    probeTip.position.set(sx, 3.85, bridgeZ); group.add(probeTip)
+    // Lente óptica
+    const lens = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.09, 10),
+      new THREE.MeshStandardMaterial({ color: 0x00ddff, metalness: 0.9, emissive: 0x0055ff }))
+    lens.position.set(sx, 3.82, bz); g.add(lens)
 
-    const laserRay = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 2.0), new THREE.MeshBasicMaterial({ color: 0x00f5ff, transparent: true, opacity: 0 }))
-    laserRay.position.set(sx, 2.8, bridgeZ); group.add(laserRay)
-    laserRays.push(laserRay)
+    // Rayo láser (animado)
+    const ray = new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.013, 2.2),
+      new THREE.MeshBasicMaterial({ color: 0x00f5ff, transparent: true, opacity: 0 }))
+    ray.position.set(sx, 2.7, bz); g.add(ray); laserRays.push(ray)
+
+    // LED de estado
+    const led = new THREE.Mesh(new THREE.SphereGeometry(0.048, 8, 8),
+      new THREE.MeshBasicMaterial({ color: 0x00ffcc }))
+    led.position.set(sx, 4.1, bz + 0.09); g.add(led)
   }
 
-  // Caja de control central alineada con el puente
-  const ctrlBox = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.26, 0.26), new THREE.MeshStandardMaterial({ color: 0x1a2a3a, metalness: 0.5, roughness: 0.4 }))
-  ctrlBox.position.set(-1.0, 4.45, bridgeZ); group.add(ctrlBox)
+  // Caja de control Clarity
+  const ctrlBox = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.25, 0.25),
+    new THREE.MeshStandardMaterial({ color: 0x1a2a3a, metalness: 0.5, roughness: 0.4 }))
+  ctrlBox.position.set(-0.8, 4.38, bz); g.add(ctrlBox)
+  const disp = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.12),
+    new THREE.MeshBasicMaterial({ color: 0x00f5ff, transparent: true, opacity: 0.5 }))
+  disp.position.set(-0.8, 4.38, bz + 0.128); g.add(disp)
 
-  const dispGlow = new THREE.Mesh(new THREE.PlaneGeometry(0.20, 0.13), new THREE.MeshBasicMaterial({ color: 0x00f5ff, transparent: true, opacity: 0.45 }))
-  dispGlow.position.set(-1.0, 4.45, bridgeZ + 0.131); group.add(dispGlow)
+  // ── DOSIFICADOR DE DETERGENTE ─────────────────────────
+  const doserPump = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.5, 10),
+    new THREE.MeshStandardMaterial({ color: 0x1a3050, metalness: 0.7 }))
+  doserPump.position.set(2.2, 1.5, -2.3); g.add(doserPump)
+  const doserTube = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.5, 8),
+    new THREE.MeshStandardMaterial({ color: 0x225599, metalness: 0.6 }))
+  doserTube.position.set(2.2, 2.3, -2.3); g.add(doserTube)
 
-  // ── Tuberías y Luz ────────────────────────────────────
-  const overflow = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.065, 0.75, 10), new THREE.MeshStandardMaterial({ color: 0x3a5566, metalness: 0.9 }))
-  overflow.rotation.x = Math.PI / 2; overflow.position.set(-3.85, 2.85, -2.78); group.add(overflow)
+  // ── PARTÍCULAS DE BIOCARGA ────────────────────────────
+  const floatLayer = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.09, 4.5),
+    new THREE.MeshStandardMaterial({ color: 0x44bbdd, transparent: true, opacity: 0.35, roughness: 0.2 }))
+  floatLayer.position.set(-0.8, 3.63, 0); g.add(floatLayer)
 
-  const valve = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.3, 10), new THREE.MeshStandardMaterial({ color: 0xe05a00, metalness: 0.7 }))
-  valve.position.set(-1.0, -0.18, 1.7); group.add(valve)
-
-  const tankLight = new THREE.PointLight(0x00aaff, 3, 8)
-  tankLight.position.set(-1.0, 2.5, 0); group.add(tankLight)
-
-  // ── SEPARACIÓN POR DENSIDAD ───────────────────────────
-  const floatLayer = new THREE.Mesh(
-    new THREE.BoxGeometry(5.4, 0.10, 4.5),
-    new THREE.MeshStandardMaterial({ color: 0x55ddff, transparent: true, opacity: 0.38, roughness: 0.2 })
-  )
-  floatLayer.position.set(-1.0, 3.04, 0); group.add(floatLayer)
-
+  // Partículas orgánicas (biocarga) flotando
   const petGeo = new THREE.BufferGeometry()
   const petPos = []; const petCol = []
-  const petPalette = [[0.67,0.87,1.0],[0.9,0.9,0.9],[0.13,0.67,0.27],[0.13,0.27,0.67],[0.0,0.85,0.85]]
-  for (let i = 0; i < 400; i++) { 
-    petPos.push((Math.random()-0.5)*5.3 - 1.0, 3.06+Math.random()*0.1, (Math.random()-0.5)*4.4)
-    petCol.push(...petPalette[Math.floor(Math.random()*petPalette.length)])
+  // Colores: restos orgánicos (marrón/amarillo/gris)
+  const orgPalette = [[0.55,0.38,0.18],[0.68,0.55,0.28],[0.42,0.32,0.15],[0.75,0.70,0.45],[0.35,0.28,0.12]]
+  for (let i = 0; i < 300; i++) {
+    petPos.push((Math.random()-0.5)*5.1 - 0.8, 3.64+Math.random()*0.1, (Math.random()-0.5)*4.4)
+    petCol.push(...orgPalette[Math.floor(Math.random()*orgPalette.length)])
   }
   petGeo.setAttribute('position', new THREE.Float32BufferAttribute(petPos, 3))
   petGeo.setAttribute('color', new THREE.Float32BufferAttribute(petCol, 3))
-  const petFlakes = new THREE.Points(petGeo, new THREE.PointsMaterial({ size: 0.13, vertexColors: true, transparent: true, opacity: 0.95 }))
-  group.add(petFlakes)
+  const petFlakes = new THREE.Points(petGeo, new THREE.PointsMaterial({ size: 0.11, vertexColors: true, transparent: true, opacity: 0.9 }))
+  g.add(petFlakes)
 
+  // Partículas sedimentadas en el fondo
   const sinkGeo = new THREE.BufferGeometry()
   const sinkPos = []; const sinkCol = []
-  const sinkPalette = [[0.6,0.15,0.15],[0.45,0.45,0.45],[0.75,0.65,0.2],[0.15,0.15,0.15]]
-  for (let i = 0; i < 150; i++) {
-    sinkPos.push((Math.random()-0.5)*5.2 - 1.0, 0.18+Math.random()*0.22, (Math.random()-0.5)*4.3)
+  const sinkPalette = [[0.4,0.3,0.1],[0.3,0.25,0.1],[0.5,0.4,0.15]]
+  for (let i = 0; i < 120; i++) {
+    sinkPos.push((Math.random()-0.5)*5.0 - 0.8, 0.18+Math.random()*0.18, (Math.random()-0.5)*4.3)
     sinkCol.push(...sinkPalette[Math.floor(Math.random()*sinkPalette.length)])
   }
   sinkGeo.setAttribute('position', new THREE.Float32BufferAttribute(sinkPos, 3))
   sinkGeo.setAttribute('color', new THREE.Float32BufferAttribute(sinkCol, 3))
-  const sinkParticles = new THREE.Points(sinkGeo, new THREE.PointsMaterial({ size: 0.10, vertexColors: true, transparent: true, opacity: 0.80 }))
-  group.add(sinkParticles)
+  const sinkParticles = new THREE.Points(sinkGeo, new THREE.PointsMaterial({ size: 0.09, vertexColors: true, transparent: true, opacity: 0.75 }))
+  g.add(sinkParticles)
 
-  const sepPlane = new THREE.Mesh(
-    new THREE.PlaneGeometry(5.5, 4.6),
-    new THREE.MeshBasicMaterial({ color: 0x00ffcc, transparent: true, opacity: 0.07, side: THREE.DoubleSide })
-  )
-  sepPlane.rotation.x = -Math.PI / 2; sepPlane.position.set(-1.0, 0.52, 0); group.add(sepPlane)
+  // ── LUZ ───────────────────────────────────────────────
+  const tankLight = new THREE.PointLight(0x22aaff, 3.0, 9)
+  tankLight.position.set(-0.8, 2.5, 0); g.add(tankLight)
 
-  scene.add(group)
-  return { group, waterMesh, glowRings, tankLight, laserRays, impellerBlades, petFlakes, sinkParticles, floatLayer }
+  scene.add(g)
+  return { group: g, waterMesh, glowRings, tankLight, laserRays, impellerBlades, petFlakes, sinkParticles, floatLayer }
 }
